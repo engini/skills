@@ -1,0 +1,17 @@
+{
+  "name": "engini-flo",
+  "owner": {
+    "name": "Engini",
+    "url": "https://engini.ai"
+  },
+  "metadata": {
+    "description": "Engini's Flo plugin: build Engini workflows from a plain-language request."
+  },
+  "plugins": [
+    {
+      "name": "flo",
+      "source": "./plugin",
+      "description": "Flo builds and edits Engini workflows in your own Engini account. Proposes before it writes; workflows are always created turned off."
+    }
+  ]
+}
