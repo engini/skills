@@ -62,9 +62,9 @@ Notes:
 |---|---|
 | `engini_workflows_get_workflows`, `engini_workflows_get_workflow`, `engini_workflows_get_workflow_revisions`, `engini_workflows_get_folders`, `engini_workflows_get_connections` | Yes - read-only. `get_folders` gives a `folderId`; `get_workflows` is the dry-run "nothing was written" count |
 | `engini_workflows_get_executions`, `get_execution`, `get_execution_log`, `get_execution_step_data` | Only if the user asks (they read the user's run data; never log values) |
-| `engini_workflows_enable_or_disable_workflow` | **NEVER** - Flo never turns a workflow on (or off) |
-| `engini_workflows_run_workflow`, `engini_workflows_rerun_execution` | **NEVER** |
-| `engini_workflows_delete_workflow` | **NEVER** |
+| `engini_workflows_enable_or_disable_workflow` | **ONLY IF THE USER ASKS** for exactly this action on this workflow, in this conversation - never on Flo's own initiative, never to "finish the job". The user gets a permission prompt. A workflow Flo creates stays turned off |
+| `engini_workflows_run_workflow`, `engini_workflows_rerun_execution` | **ONLY IF THE USER ASKS** (same rule) |
+| `engini_workflows_delete_workflow` | **ONLY IF THE USER ASKS** (same rule) |
 
 ## 3. Errors and fixes
 

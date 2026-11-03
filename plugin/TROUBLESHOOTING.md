@@ -42,20 +42,21 @@ Flo stops and tells you when one of these comes back. What **you** do:
 | The skill is not found right after installing | Both tools load plugins at session start | Start a new session |
 | The Flo agent does not load in Codex | Codex may not install a plugin's agent definition (not yet verified) | Use the skill directly ("build an Engini workflow ...") |
 | `/plugin details flo@engini-flo` shows `Hooks (0)` | The guard is not installed | Reinstall from `engini/flo-plugin`; check the plugin is enabled |
-| The install check prints `FLO-CANARY-RAN` | The guard did not run: no `python3`/`python` (3.8+) on your path, hooks disabled in your settings, the plugin disabled, or an older Claude Code | Fix the cause; until then only your own deny rules stand in for it |
+| The install check prints `FLO-CANARY-RAN` with no prompt | The guard did not run: no `python3`/`python` (3.8+) on your path, hooks disabled in your settings, the plugin disabled, or an older Claude Code - or your permission mode answered the prompt for you | Fix the cause; until then only your own settings (the safety block) stand in for it |
+| The install check shows a prompt that does not contain `FLO-HOOK-ASK` | The prompt came from your own settings, not from the guard: the guard did not run | Same as above |
 
-## "A command was blocked" (Claude Code)
+## "A command was blocked" or "Claude Code is asking me about a command" (Claude Code)
 
-The message starts with **`FLO-HOOK-DENY`**. It comes from Flo's guard hook, installed with the plugin in
-`hooks/deny-never-verbs.py`. It applies to **every** Claude Code session where the plugin is enabled - not only to
-Flo - so it can block your own commands too. Removing it is a deliberate downgrade: only your own settings would be
-left. Which one you got:
+The message starts with **`FLO-HOOK-ASK`** (a prompt for you) or **`FLO-HOOK-DENY`** (a refusal the agent reads). It
+comes from Flo's guard hook, installed with the plugin in `hooks/deny-never-verbs.py`. It applies to **every** Claude
+Code session where the plugin is enabled - not only to Flo - so it can ask about or block your own commands too.
+Removing it is a deliberate downgrade: only your own settings would be left. Which one you got:
 
 | Message says | Why | What you do |
 |---|---|---|
-| **never-verb** | The command turns on/off, runs, reruns or deletes a workflow | Intended. Do not work around it. If you really mean it, do it yourself in the Engini app or your own terminal. If the command only *names* one inside a plan's text, run the `engini tools call ... <<'EOF'` as its own command, opener on the first line: any other heredoc is checked as code |
-| **unreadable tool name** | The tool name in `engini tools call` is built from a shell variable, a substitution or a pattern, so the guard cannot check it against the never list | Write the tool name literally. If the tool name sits inside an inline `--args '{...}'` value, pass the arguments through `--args -` with a quoted heredoc instead |
-| **raw-key command** | `engini connect`, `engini login`, `connections create/update/delete`, `auth-providers create/update` or `--api-key` | Run it yourself in your own terminal |
+| **never-verb** (a prompt) | The command turns on/off, runs, reruns or deletes a workflow. Flo does this only when you explicitly asked for that action on that workflow | **Approve only if you asked for exactly this.** If you did not, answer No: Flo should not have tried. If the command only *names* one inside a plan's text, run the `engini tools call ... <<'EOF'` as its own command, opener on the first line: any other heredoc is checked as code |
+| **unreadable tool name** (a prompt) | The tool name in `engini tools call` is built from a shell variable, a substitution or a pattern, so the guard cannot check it against the never list and it could be one of the four | Answer No unless you know what it runs. Better: have Flo write the tool name literally. If the tool name sits inside an inline `--args '{...}'` value, pass the arguments through `--args -` with a quoted heredoc instead |
+| **raw-key command** (a refusal) | `engini connect`, `engini login`, `connections create/update/delete`, `auth-providers create/update` or `--api-key` | Run it yourself **in your own terminal, outside Claude Code or Codex** - not with the `!` prefix: in Claude Code's `!` mode the input is not a terminal, so the CLI cannot hide the key you type. Flo gives you the exact command; tell him when it is done |
 | **key read** | It touches the CLI's stored login, an `ENGINI_*` key variable, or dumps the whole environment | Nothing to fix; check presence only, with `[ -n "$ENGINI_API_KEY" ]` |
 | **protected file** | It edits the guard itself or your Claude Code / Codex settings | Make that change yourself |
 | **unreadable hook input** | The guard could not read what Claude Code sent it, so it refused (it fails closed) | Update Claude Code; if it persists, report it |
@@ -64,6 +65,8 @@ To work without the guard for a session: `/plugin disable flo@engini-flo` (this 
 
 ## "Nothing is ever blocked in Codex"
 
-Expected: **Codex has no Flo hook.** The only thing that refuses the four verbs in Codex is the rules file from the
-README's safety block, saved as `~/.codex/rules/flo.rules`. If commands are not refused, check that file exists and
-that you started a new session after saving it.
+Expected: **Codex has no Flo hook.** The only thing that asks you before the four verbs and the key-handling
+commands in Codex is the rules file from the README's safety block, saved as `~/.codex/rules/flo.rules`. If commands
+are not asked about, check that file exists and that you started a new session after saving it. When Codex asks about a
+key-handling command, decline it and run the command yourself in your own terminal, outside Codex: an approved one runs
+through the agent.

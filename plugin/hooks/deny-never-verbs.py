@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """Flo guard - a Claude Code PreToolUse hook (Python 3.8+).
 
-Refuses: the four never-verb `engini tools call` slugs (and any tool name it cannot read), the engini commands
-that take or store a raw API key, reads of the engini CLI's stored login or key variables, and edits to this hook
-or the user's agent settings. Every other command and every other tool slug passes.
+Asks the user to confirm: the four never-verb `engini tools call` slugs (and any tool name it cannot read, which
+could be one of them). Refuses: the engini commands that take or store a raw API key (the refusal tells the agent to
+hand the command to the user's own terminal), reads of the engini CLI's stored login or key variables, and edits to
+this hook or the user's agent settings. Every other command and every other tool slug passes. A refusal beats a
+question: a command that trips both is refused.
 
 A text matcher, not a sandbox: indirection (eval, a shell function, a script file) and anything that skips the
 CLI never reach it. It writes nothing, logs nothing and never echoes the text it judged (it may hold a key).
@@ -17,6 +19,7 @@ import sys
 
 # BEGIN GENERATED from tools/rules.json by tools/generate.py - do not edit by hand
 DENY_TOKEN = 'FLO-HOOK-DENY'
+ASK_TOKEN = 'FLO-HOOK-ASK'
 NEVER_VERBS = frozenset(['engini_workflows_delete_workflow', 'engini_workflows_enable_or_disable_workflow', 'engini_workflows_rerun_execution', 'engini_workflows_run_workflow'])
 CALL_VALUE_FLAGS = frozenset(['--args', '--connection', '--file', '--llm', '--max-bytes', '--tool-call-id', '--toolset'])
 RAW_KEY_COMMANDS = (('connect',), ('connections', 'auth-providers', 'create'), ('connections', 'auth-providers', 'update'), ('connections', 'create'), ('connections', 'delete'), ('connections', 'update'), ('login',))
@@ -26,9 +29,11 @@ KEY_PATH = ('(?:\\.config|XDG_CONFIG_HOME\\}?|APPDATA%?|AppData[\\\\/]+Roaming)[
 SELF_PROTECT = ('deny-never-verbs', 'hooks[\\\\/][A-Za-z0-9_-]*hooks\\.json', '(?<![A-Za-z0-9_-])\\.claude[\\\\/]+(?:plugins|settings)', '(?<![A-Za-z0-9_-])\\.codex[\\\\/]', '(?<![A-Za-z0-9_-])\\.(?:claude|codex)[\\\\/]*(?=[\\s;&|)\'"]|\\Z)', '(?<![A-Za-z0-9_-])\\.claude[\\\\/]+[^\\s\\\\/]*[*?\\[{$`]', '(?<![A-Za-z0-9_-])\\.(?:claude|codex)[\\\\/](?:[^\\s\\\\/;&|<>]*[\\\\/])*\\.\\.?(?=[\\\\/\\s;&|)\'"<>`]|\\Z)', '(?<![A-Za-z0-9_-])(?:cd|pushd|chdir|Set-Location|Push-Location|sl)[ \\t(]+[^;&|\\n]*\\.(?:claude|codex)[\\\\/]')
 # END GENERATED
 
-R_NEVER = DENY_TOKEN + ": never-verb. This engini tool turns on/off, runs, reruns or deletes a workflow - it is on Flo's never list (plugin README, 'What Flo will never do'). If you mean it, do it yourself in the Engini app."
-R_UNREADABLE = DENY_TOKEN + ": unreadable tool name. The tool name in this engini command is built from a variable, a substitution or a pattern, so it cannot be checked against Flo's never list. Write the slug literally."
-R_RAW_KEY = DENY_TOKEN + ": raw-key command. This engini command takes or stores an API key (connect, login, connections create/update/delete, auth-providers create/update, --api-key). Run it yourself in your own terminal."
+# The two ASK reasons go to the USER in Claude Code's permission prompt; every DENY reason goes to the agent.
+R_NEVER = ASK_TOKEN + ": never-verb. This engini tool turns on/off, runs, reruns or deletes a workflow, which Flo does only when you asked for exactly that action on that workflow. Approve only if you did."
+R_UNREADABLE = ASK_TOKEN + ": unreadable tool name. The tool name in this engini command is built from a variable, a substitution or a pattern, so it cannot be checked against Flo's never list and could be one that turns on/off, runs, reruns or deletes a workflow. Approve only if you know what it runs."
+R_RAW_KEY = DENY_TOKEN + ": raw-key command. This engini command takes or stores an API key (connect, login, connections create/update/delete, auth-providers create/update, --api-key). Do not run it and do not ask the user to paste a key into the chat. Stop and tell the user to run the command in their OWN terminal, outside Claude Code and Codex - not with the ! prefix: in Claude Code's ! mode the input is not a terminal, so the CLI cannot hide the key. Give the exact command with no key in it (for example: engini login, or engini connect engini_workflows and choose auth method 1, x-api-key), never --api-key or a key in the arguments or environment, and ask them to tell you when it is done."
+ASK_REASONS = frozenset((R_NEVER, R_UNREADABLE))
 R_KEY_READ = DENY_TOKEN + ": key read. This reads the engini CLI's stored login, an Engini key variable or the whole environment. Only a presence test such as [ -n \"$ENGINI_API_KEY\" ] is allowed."
 R_SELF = DENY_TOKEN + ": protected file. This changes Flo's guard hook or your agent settings. Change those yourself."
 R_BAD_INPUT = DENY_TOKEN + ": unreadable hook input, refused (the guard fails closed)."
@@ -298,12 +303,15 @@ def judge_shell(cmd, ps):
     rest = PRESENCE.sub(' ', text)
     if KEY_ENV_RE.search(rest) or KEY_ENV_RE.search(re.sub(r"['\"`\\]", '', rest)) or ENV_DUMP.search(rest):
         return R_KEY_READ
+    ask = None
     for seg in segments(text, ps):
         for judge in (judge_call, judge_named, judge_raw_key, judge_env_dump):
             reason = judge(seg)
-            if reason:
+            if reason in ASK_REASONS:
+                ask = ask or reason   # keep looking: a refusal in a later segment beats a question
+            elif reason:
                 return reason
-    return None
+    return ask
 
 
 def _str(ti, key, required):
@@ -397,7 +405,8 @@ def _reaches_key(real):
 
 
 def decide(raw_stdin):
-    """The deny reason for one PreToolUse payload, or None to allow. Never raises."""
+    """The reason for one PreToolUse payload (an ASK_REASONS member = ask the user, anything else = deny), or None
+    to allow. Never raises."""
     try:
         payload = json.loads(raw_stdin)
         if not isinstance(payload, dict) or not isinstance(payload.get('tool_input'), dict):
@@ -438,7 +447,8 @@ def main():
     reason = decide(raw)
     if reason:
         sys.stdout.write(json.dumps({'hookSpecificOutput': {
-            'hookEventName': 'PreToolUse', 'permissionDecision': 'deny', 'permissionDecisionReason': reason}}))
+            'hookEventName': 'PreToolUse', 'permissionDecision': 'ask' if reason in ASK_REASONS else 'deny',
+            'permissionDecisionReason': reason}}))
     return 0
 
 

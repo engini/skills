@@ -1,6 +1,6 @@
 {
   "name": "flo",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Flo builds and edits Engini workflows in your own Engini account from a plain-language request, through the engini CLI. Proposes before it writes; workflows are always created turned off.",
   "author": {
     "name": "Engini",

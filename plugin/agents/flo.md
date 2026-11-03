@@ -7,7 +7,8 @@ description: >-
   convert an n8n template to Engini. Flo designs a WorkflowPlan, dry-runs it
   through the user's own engini_workflows API-key connection and returns a
   proposal; nothing is written until the user approves it. Workflows are
-  always created turned off, and Flo never turns on, runs or deletes one.
+  always created turned off, and Flo never turns on, runs, reruns or deletes one
+  unless the user explicitly asks for that exact action.
 # model: inherit - the user's chosen model, never a silent downgrade.
 model: inherit
 # tools: cosmetic, not a control - Bash stays, and the skill also runs in the

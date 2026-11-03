@@ -1,5 +1,5 @@
 {
-  "description": "Flo guard: refuses the four never-verb engini tool calls, raw-key engini commands, reads of the engini CLI key, and edits to this hook or agent settings.",
+  "description": "Flo guard: asks before the four never-verb engini tool calls; refuses raw-key engini commands, reads of the engini CLI key, and edits to this hook or agent settings.",
   "hooks": {
     "PreToolUse": [
       {
