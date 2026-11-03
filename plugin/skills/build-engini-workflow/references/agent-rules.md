@@ -77,6 +77,22 @@ Facts that keep coming back:
   tell the user to check its inputs in the designer.
 - `search_builder_catalog`'s text argument is `q`.
 - A workflow built before a builder fix shipped keeps the old stored shape: re-create or re-save it after the fix.
+- Blocks and built-ins a plan can build (`plan-format.md` §1g, §1h, §3): `switch`, `do_while`, `scope`, `onFailure`,
+  and the Sort & Filter, Map Array and Parse JSON tools. Query Array is not buildable: leave it for the designer.
+
+The five runtime caveats the builder cannot fix - say each one in the proposal when the plan has the feature:
+- **`onFailure`: a caught failure makes the whole run report Success.** Put a notify step in every handler, with a
+  fixed message plus the run id (`@@getworkflowhistoryid()`). Never forward `@@lasterrormessage()` /
+  `@@lasterror()` / `@@errors(N)` on your own initiative: it can be the failed step's whole request (URL, headers,
+  body). Only if the user asks for the error text, and then flag it as their deliberate choice.
+- **`do_while`: the body may run zero times and exposes no current item and no output.** Its condition sees only
+  variables and steps before the loop: set a variable inside `do` and test that.
+- **A plan-built Sort & Filter compares values as text**: a numeric or date filter or sort may not do what it says
+  until the user picks the data object on the step in the designer.
+- **A Parse JSON `sample` is stored in clear text with the workflow**: invent it from the field names, never paste a
+  real record the user shows you or a run's data.
+- **`onFailure` creates a failure path but cannot move or delete one**: changing an existing failure path stays a
+  designer action.
 
 ## The proposal
 
@@ -94,6 +110,7 @@ Picks (every list field in the plan):
 Warnings:
 - MISSING_CONNECTION on <key> - connect it in the designer before turning the workflow on
 - <field> on <key> left for you (dependent dropdown / NEEDS_CUSTOMER_INPUT)
+- <the runtime caveat of each onFailure / do_while / Sort & Filter / Parse JSON step in the plan>
 
 Fingerprint: <8 hex>
 Approve to create in <account> / <workspace> / <environment>? Reply with the fingerprint.

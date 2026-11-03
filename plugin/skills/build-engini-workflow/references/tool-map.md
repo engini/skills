@@ -94,12 +94,19 @@ Shape checks (nothing compiles until these are fixed):
 
 | Code | Fix |
 |---|---|
-| `UNKNOWN_STEP_TYPE` | `type` must be one of the 9 in `plan-format.md` §0 |
+| `UNKNOWN_STEP_TYPE` | `type` must be one of the 12 in `plan-format.md` §0 |
 | `INVALID_KEY` / `DUPLICATE_KEY` | Letter first, `[A-Za-z0-9_]`, ≤40, unique plan-wide |
 | `MISSING_TRIGGER` / `NULL_STEP` | Add the trigger; remove null entries |
 | `MISSING_CONDITION` / `UNKNOWN_OPERATOR` | `if` needs `condition.left` + `op` from `eq ne gt gte lt lte contains empty notempty` |
 | `MISSING_ITEMS` | `foreach` needs `items` |
-| `MISPLACED_BRANCH` | `then`/`else` only on `if`, `do` only on `foreach`; none on the trigger or an opaque step |
+| `MISPLACED_BRANCH` | `then`/`else` only on `if`; `do` only on `foreach`/`do_while`/`scope`; `cases`/`default` only on `switch`; none of them, and no `onFailure`, on the trigger or an opaque step (to add a failure path to an opaque step, name its tool as an `action`) |
+| `FAILURE_PATH_EMPTY` | `onFailure: []` - give it at least one step, or leave the member out |
+| `SWITCH_VALUE_MISSING` | A `switch` needs the value it compares in `inputs.data` (usually a `{{ref}}`) |
+| `SWITCH_CASES_MISSING` / `SWITCH_TOO_MANY_CASES` | 1-50 cases `[{value, steps}]`; for a yes/no choice use an `if`; for more, group values in an `if` or split the switch |
+| `SWITCH_CASE_VALUE_MISSING` | Every case needs a `value` |
+| `SWITCH_CASE_DUPLICATE` | Two cases with the same value text - only the last would run. Merge them or make the values distinct (`1` and `1.0` also match each other at run time) |
+| `DO_WHILE_CONDITION_MISSING` | A `do_while` needs `condition` (`left` + `op`): without one it repeats to its limit and fails |
+| `DO_WHILE_BODY_EMPTY` | A `do_while` needs at least one step in `do` |
 | `INVALID_NOTE` | A note needs `content`; `id` 32 hex; `color` from the list; `x` with `y`; size in range (`plan-format.md` §1d) |
 
 Compiler checks:
@@ -125,16 +132,33 @@ Compiler checks:
 | `NEEDS_CUSTOMER_INPUT` | warning | A connection-dependent dropdown whose options can't be read (no connection); value kept with no label - the user completes it. Not raised for platform-block dropdowns |
 | `UNKNOWN_OPTION` | warning | Value is not an option id (message lists up to 10). Use an id - treat as must-fix. Only when the list can decide it; see `OPTION_NOT_CHECKED` |
 | `OPTION_NOT_CHECKED` | warning | The value matched no option, but the list cannot decide it (empty, multi-select, server-searched field, dependent list read for a non-literal parent). Value kept. Pick from `get_builder_field_options` if you can; otherwise name it in the proposal's Picks list |
-| `QUERY_OPTION_NOT_ALLOWED` / `QUERY_OPTION_REQUIRED` | error | `filters`/`top`/`sorts` only where the schema's `query` offers them; add the one it marks required |
+| `QUERY_OPTION_NOT_ALLOWED` / `QUERY_OPTION_REQUIRED` | error | `filters`/`top`/`sorts` only where the schema's `query` offers them, `advancedFilter`/`offset` only on Sort & Filter; add the one it marks required |
 | `INVALID_QUERY_FIELD` / `OPERATOR_NOT_ALLOWED` | error | Field from the object's filterable/sortable fields; operator from the tool's list (`plan-format.md` §1b) |
 | `SUBITEM_NOT_ALLOWED` / `UNKNOWN_SUBITEM_FIELD` / `INVALID_SUBITEM_FIELD` / `TOO_MANY_SUBITEM_ROWS` | error | Only tables, names and row counts from the schema's `subItems` section (`plan-format.md` §1c) |
 | `SUBITEMS_CLEARED` | warning | The edit omitted a step's tables - send back the ones from `get_workflow_plan` unless clearing is intended |
 | `NOTE_CONTENT_TOO_LONG` / `TOO_MANY_NOTES` | error | Max 8,000 chars per note, 50 notes - only checked on notes the plan adds or changes |
 | `NOTES_REPLACED` | warning | The `notes` array dropped stored notes (ids listed) - resend them unless removal is intended |
-| `INVALID_TOP` / `INVALID_SORT_DIRECTION` / `TOO_MANY_QUERY_ROWS` | error | `top` ≥ 1; `asc`/`desc`; within the tool's max filters/sorts |
+| `INVALID_TOP` / `INVALID_SORT_DIRECTION` / `TOO_MANY_QUERY_ROWS` | error | `top` ≥ 1, `offset` ≥ 0; `asc`/`desc`; within the tool's max filters/sorts |
 | `FIELD_IS_NOT_A_FILTER` | warning | An object field written as an input picks nothing: move it to `filters` |
 | `STEP_AFTER_FAILURE_HANDLER` | warning | The step runs only on failure of the handled step - move it if that wasn't meant |
 | `FORK_EDGE_DROPPED` | warning | A moved step no longer runs alongside its fork siblings - confirm with the user |
+| `FAILURE_PATH_NOT_MOVABLE` | error | An existing step heads an `onFailure` it is not already the handler of, moves to another container, or an existing failure-path step sits after a new one in an `onFailure`. A plan creates failure paths, never moves one or turns a step into a handler: give the handler a new key, add new steps after the existing handler, or leave the change to the designer |
+| `FAILURE_PATH_OMITTED` | error | The plan keeps a step but leaves out its existing failure path (named in the message). Send it back exactly as `get_workflow_plan` returned it (nested under `onFailure`, or flat); removing it is a designer action |
+| `FAILURE_PATH_FLAGS_KEPT` | warning | An existing failure handler (or a step that runs either way) is listed in an ordinary place; it keeps its role there. Put it back under its step's `onFailure` unless the user changes it in the designer |
+| `FAILURE_PATH_OWN_OUTPUT` | warning | A failure-path step reads the failed step's output, which is missing or partial then: read an earlier step instead |
+| `ERROR_TEXT_FORWARDED` | warning | A failure-path step sends `@@lasterror`/`@@lasterrormessage`/`@@errors` to a tool outside Engini - that text can be the failed step's whole request (URL, headers, body). Use a fixed message plus the run id; keep it only if the user chose it deliberately, and say so in the proposal |
+| `SWITCH_CASE_VALUE_INVALID` | error | A case value holds markup (a script tag, an event handler, a `javascript:` link): remove it. Or the engine cannot parse it (it would never match): wrap a text value that starts with a digit, `.`, `-` or `+` and holds a space or comma in double quotes, `"\"1 - High\""` |
+| `SWITCH_SHAPE_UNSUPPORTED` | error | The existing switch has a second Default or a non-Case branch, which a plan cannot describe: keep it `opaque` as `get_workflow_plan` returns it, or fix it in the designer |
+| `DO_WHILE_LIMIT_INVALID` | error | `count` (1-5000) / `timeout` (1-60 minutes) must be a whole number in the block's range, never a reference; leave it out for the default |
+| `DO_WHILE_CONDITION_STATIC` | warning | The condition reads no variable a `set_variable` inside `do` sets, so it never changes and the loop runs to its limit and fails. Set a variable in the loop and test it - treat as must-fix |
+| `DO_WHILE_NO_OUTPUT` | warning | A step reads a `do_while`'s output; it has none (no current item). After the loop, read a variable the loop sets; inside the loop, an earlier step of `do` |
+| `MAP_ARRAY_KEY_NORMALIZED` | warning | A Map Array column name had spaces, stored without them: read it as `{{map.TotalAmount}}`, and write names without spaces |
+| `PARSE_JSON_SAMPLE_MISSING` | error | A new Parse JSON step needs a `sample` (so does changing `mapDictionary` when none is saved): a made-up JSON or XML document of the shape it parses - never a real record |
+| `PARSE_JSON_SAMPLE_INVALID` | error | The sample is over 64 KB, over 64 levels deep, unreadable, holds a DTD/entity or markup, has no object, or too many objects/fields: cut it to the fields you read |
+| `PARSE_JSON_ONLY_MEMBER` | error | `sample`/`mapDictionary` only on the built-in Parse JSON tool; raised on any other tool step (on a block they are ignored) |
+| `PARSE_JSON_NO_DICTIONARY` | warning | `mapDictionary` is on but the sample has no object whose keys are numbers (ids): the step outputs the raw text or fails. Turn it off, or fix the sample |
+| `ADVANCED_FILTER_OUTSIDE_DATA` | warning | An advanced filter's `field` does not start with the step's `data` reference, so it reads the whole output, the same for every record: write `{{<data ref>.<field>}}` |
+| `SORT_FILTER_UNTYPED` | warning | A designer Sort & Filter's `data` is not another step as a whole (a path such as `{{s2.records}}`, an expression), so its filters and sorts compare as text: read the whole step (`{{s2}}`) or tell the user |
 | `AI_AGENT_NOT_ALLOWED` | error | `model` / `memory` / `tools` only on an `ai_agent`; an `ai_agent` takes no `tool`, `condition` or `items` (`plan-format.md` §1e) |
 | `AI_MODEL_REQUIRED` | error | A new `ai_agent` needs `model` `{provider, connection, inputs}` |
 | `AI_MODEL_CONNECTION_REQUIRED` | error | Model `connection` is `none`/0, or `auto` finds none: give a connection id of the provider |

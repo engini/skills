@@ -134,3 +134,120 @@ dropped silently.
 `amount` holds a reference, so it needs `valueTypes` to be a number; `since` needs it to be a date. `note` compiles to
 `@@concat(...)`. With `{{deal.Name}}` / `{{deal.Amount}}` on a Salesforce opportunity trigger this compiles with 0
 diagnostics (unverified live).
+
+## R7. Catch a failure - unverified live
+
+A failure path on one step, and try/catch around a group (`plan-format.md` §1h). The handler sends a **fixed message
+plus the run id**, never `@@lasterrormessage()` (that can be the failed step's whole request - URL, headers, body).
+A caught failure makes the run report **Success**, so the handler is the only place anyone hears of it: always notify.
+
+```json
+{
+  "name": "Flo R7 - catch a failure",
+  "trigger": { "key": "start", "tool": "<trigger slug>" },
+  "steps": [
+    { "key": "push", "tool": "<action slug>", "connection": "<connection id>", "inputs": { "id": "{{start.<id field>}}" },
+      "onFailure": [
+        { "key": "push_alert", "tool": "<email or chat action slug>", "connection": "<connection id>",
+          "inputs": { "<message field>": "Push failed in run @@getworkflowhistoryid()" } } ] },
+    { "key": "sync", "type": "scope",
+      "do": [
+        { "key": "read", "tool": "<action slug>", "connection": "<connection id>", "inputs": {} },
+        { "key": "write", "tool": "<action slug>", "connection": "<connection id>", "inputs": { "<field>": "{{read.<field>}}" } }
+      ],
+      "onFailure": [
+        { "key": "sync_alert", "tool": "<email or chat action slug>", "connection": "<connection id>",
+          "inputs": { "<message field>": "The sync failed in run @@getworkflowhistoryid()" } },
+        { "key": "sync_stop", "type": "stop", "inputs": { "status": "<status option id, e.g. 2 = Failure>" } } ] }
+  ]
+}
+```
+
+`sync_stop` ends the run as Failure after the alert, when the user wants the history to show it. A plan can add a
+failure path, never move or delete an existing one.
+
+## R8. Route on a value (switch) - unverified live
+
+```json
+{
+  "name": "Flo R8 - switch",
+  "trigger": { "key": "start", "tool": "<trigger slug>" },
+  "steps": [
+    { "key": "route", "type": "switch", "inputs": { "data": "{{start.<status field>}}" },
+      "cases": [
+        { "value": "new", "steps": [ { "key": "welcome", "tool": "<action slug>", "connection": "<connection id>", "inputs": {} } ] },
+        { "value": "won", "steps": [ { "key": "invoice", "tool": "<action slug>", "connection": "<connection id>", "inputs": {} } ] }
+      ],
+      "default": [] }
+  ]
+}
+```
+
+1-50 cases with distinct values; `default` runs when none matches and may stay empty. Two outcomes are an `if`.
+
+## R9. Poll until done (do_while) - unverified live
+
+```json
+{
+  "name": "Flo R9 - poll until done",
+  "trigger": { "key": "start", "tool": "<trigger slug>" },
+  "steps": [
+    { "key": "state", "type": "init_variable",
+      "inputs": { "NAME": "state", "TYPE": "<VARTYPE option id, e.g. string>", "VALUE": "pending" } },
+    { "key": "poll", "type": "do_while",
+      "condition": { "left": "{{state}}", "op": "ne", "right": "done" },
+      "inputs": { "count": "20", "timeout": "10" },
+      "do": [
+        { "key": "check", "tool": "<status action slug>", "connection": "<connection id>", "inputs": {} },
+        { "key": "keep", "type": "set_variable", "inputs": { "VARIABLE": "state", "VALUE": "{{check.<status field>}}" } },
+        { "key": "pause", "type": "delay", "inputs": { "COUNT": "1", "UNIT": "<UNIT option id, e.g. 1 = Minute>" } }
+      ] }
+  ]
+}
+```
+
+The condition is checked before each pass, against variables and steps before the loop only: it reads `state`, which
+the body sets. A condition on `{{check.status}}` would never change (`DO_WHILE_CONDITION_STATIC`). The loop has no
+output: later steps read `{{state}}`, not `{{poll...}}`.
+
+## R10. Sort, filter and reshape a list - unverified - compile pending (slugs verified)
+
+```json
+{
+  "name": "Flo R10 - sort & filter, map array",
+  "trigger": { "key": "start", "tool": "<trigger slug that returns a list>" },
+  "steps": [
+    { "key": "big", "tool": "builtin_tools.Sort & Filter", "connection": "none",
+      "inputs": { "data": "{{start.<list field>}}" },
+      "filters": [ { "field": "<field>", "operator": "eq", "value": "open" } ],
+      "sorts": [ { "field": "<field>", "direction": "asc" } ], "top": 10 },
+    { "key": "rows", "tool": "builtin_tools.MapArray", "connection": "none",
+      "inputs": { "data": "{{big}}" },
+      "subItems": { "properties": { "Customer": "{{big.<name field>}}", "Total": "{{big.<amount field>}}" } } }
+  ]
+}
+```
+
+A plan-built Sort & Filter compares values as **text**: prefer text filters (`eq`, `contains`), and tell the user a
+numeric or date filter/sort needs the data object picked on the step in the designer. Map Array column names have no
+spaces; later steps read `{{rows.Customer}}`. Map the Sort & Filter's output (`{{big}}`), not the trigger's list, or
+the filter, sort and `top` are ignored; each per-row field is the `data` reference plus the field (`{{big.<field>}}`).
+
+## R11. Parse a JSON payload - unverified - compile pending (slug verified)
+
+```json
+{
+  "name": "Flo R11 - parse json",
+  "trigger": { "key": "hook", "tool": "<webhook trigger slug>" },
+  "steps": [
+    { "key": "pj", "tool": "builtin_tools.Parse JSON", "connection": "none",
+      "inputs": { "content": "{{hook.<body field>}}" },
+      "sample": "{\"customer\": {\"name\": \"Sample Name\", \"email\": \"name@example.com\"}, \"total\": 1}" },
+    { "key": "mail", "tool": "<email action slug>", "connection": "<connection id>",
+      "inputs": { "to": "{{pj.customer.email}}", "subject": "Thanks, {{pj.customer.name}}" } }
+  ]
+}
+```
+
+The `sample` is **invented**: it is stored in clear text with the workflow, so never paste a real record the user
+shows you - keep its field names, replace every value.
