@@ -1,5 +1,5 @@
 {
-  "name": "engini-flo",
+  "name": "engini",
   "owner": {
     "name": "Engini",
     "url": "https://engini.ai"
@@ -9,7 +9,7 @@
   },
   "plugins": [
     {
-      "name": "flo",
+      "name": "workflow",
       "source": "./plugin",
       "description": "Flo builds and edits Engini workflows in your own Engini account. Proposes before it writes; workflows are always created turned off."
     }

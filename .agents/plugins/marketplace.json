@@ -1,8 +1,8 @@
 {
-  "name": "engini-flo",
+  "name": "engini",
   "plugins": [
     {
-      "name": "flo",
+      "name": "workflow",
       "source": {
         "source": "local",
         "path": "./plugin"

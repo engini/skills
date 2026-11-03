@@ -1,13 +1,13 @@
 {
-  "name": "flo",
-  "version": "0.2.0",
+  "name": "workflow",
+  "version": "0.3.0",
   "description": "Flo builds and edits Engini workflows in your own Engini account from a plain-language request, through the engini CLI. Proposes before it writes; workflows are always created turned off.",
   "author": {
     "name": "Engini",
     "url": "https://engini.ai"
   },
   "homepage": "https://docs.engini.ai",
-  "repository": "https://github.com/engini/flo-plugin",
+  "repository": "https://github.com/engini/workflow-plugin",
   "license": "MIT",
   "keywords": ["engini", "workflow", "automation", "ipaas", "no-code"],
   "skills": "./skills/"

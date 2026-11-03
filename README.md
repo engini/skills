@@ -24,27 +24,27 @@ nothing your key could not do by hand - which is also the honest limit of every 
 **Claude Code**
 
 ```text
-/plugin marketplace add engini/flo-plugin
-/plugin install flo@engini-flo
+/plugin marketplace add engini/workflow-plugin
+/plugin install workflow@engini
 ```
 
 To stay on one reviewed release, add the marketplace pinned to its tag instead:
-`/plugin marketplace add https://github.com/engini/flo-plugin.git#vX.Y.Z` (the release notes give the tag).
+`/plugin marketplace add https://github.com/engini/workflow-plugin.git#vX.Y.Z` (the release notes give the tag).
 Claude Code does not update plugins on its own; neither tool signs or verifies a plugin, so the pinned form is the
 one to use if you review what you install.
 
 **Codex** (not yet verified on a real Codex install - treat these two lines as provisional)
 
 ```text
-codex plugin marketplace add https://github.com/engini/flo-plugin.git --sparse .agents/plugins
+codex plugin marketplace add https://github.com/engini/workflow-plugin.git --sparse .agents/plugins
 ```
 
-Then install **flo** from the `/plugins` browser and start a **new session** - the skill is not found until you do.
+Then install **workflow** from the `/plugins` browser and start a **new session** - the skill is not found until you do.
 Codex has no Flo hook (see "What Flo will never do on his own"), so also paste the Codex rules from the safety block below.
 
 ## Check the install - this must fail loudly if something is wrong
 
-**Claude Code.** Run `/plugin details flo@engini-flo`. It must list **Skills (1)**, **Agents (1)** and **Hooks (1)**.
+**Claude Code.** Run `/plugin details workflow@engini`. It must list **Skills (1)**, **Agents (1)** and **Hooks (1)**.
 `Hooks (0)` means the guard is not installed and nothing but your own settings asks you before the four never-verbs.
 
 Then prove the guard actually runs. Ask Claude to run this exact command (it is harmless either way: it makes a
@@ -187,7 +187,7 @@ and tested as open:
 **Scope.** The guard applies to **every** Claude Code session where the plugin is enabled - not only while Flo is
 working. It asks you before *your own* never-verb call (approve it - you meant it) and refuses *your own*
 `engini connections delete` or `engini login` when the agent runs it: run those in your own terminal, or turn the plugin
-off for the session with `/plugin disable flo@engini-flo` (that removes the guard's other protections too). Everything
+off for the session with `/plugin disable workflow@engini` (that removes the guard's other protections too). Everything
 else - your builds, git, other tools, other Engini apps' tools - runs normally.
 
 When the guard speaks, the message starts with `FLO-HOOK-ASK` (a prompt for you, for a **never-verb** you should approve
@@ -306,12 +306,32 @@ writable root or Flo skips them. Not yet verified on a real Codex install.
   the shell as much as through file reads. The guard refuses the literal reads; what actually protects you is a
   scoped, rotatable key plus the `Bash(engini:*)` allow rule - not secrecy from the model.
 
+## Moving from flo@engini-flo
+
+Version 0.3.0 renamed the install: the repo is `engini/workflow-plugin`, the marketplace is `engini` and the plugin is
+`workflow` (the agent is still **Flo**; its skill is now `/workflow:build-engini-workflow`). The old
+`engini/flo-plugin` address redirects to the new repo, so an existing `flo@engini-flo` install keeps working until you
+move. To move:
+
+**Claude Code**
+
+```text
+/plugin uninstall flo@engini-flo
+/plugin marketplace remove engini-flo
+/plugin marketplace add engini/workflow-plugin
+/plugin install workflow@engini
+```
+
+**Codex:** remove the old **flo** plugin and the `engini-flo` marketplace in `/plugins`, then add
+`https://github.com/engini/workflow-plugin.git --sparse .agents/plugins` as shown under Install and install **workflow**
+from the browser. Start a new session afterwards.
+
 ## Updating and uninstalling
 
-- **Update:** `/plugin marketplace update engini-flo`, then reinstall (`/plugin install flo@engini-flo`); in Codex,
+- **Update:** `/plugin marketplace update engini`, then reinstall (`/plugin install workflow@engini`); in Codex,
   upgrade from `/plugins`. Neither tool updates Flo on its own, so a fix to the never list or the guard reaches you
   only when you update. Release notes flag every such change and give the guard script's SHA-256.
-- **Uninstall:** `/plugin uninstall flo@engini-flo` (Claude Code) or remove it in `/plugins` (Codex). Remove the
+- **Uninstall:** `/plugin uninstall workflow@engini` (Claude Code) or remove it in `/plugins` (Codex). Remove the
   safety block from your settings if you no longer want it.
 
 Trouble? See TROUBLESHOOTING.md.

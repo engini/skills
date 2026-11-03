@@ -13,7 +13,7 @@ missing and turns it on in the Engini designer.
 
 How Flo is invoked:
 - **Claude Code:** the `build-engini-workflow` skill loads in the main conversation when the request matches (or name
-  it as `/flo:build-engini-workflow`). The `flo` agent runs the same skill as a delegated agent.
+  it as `/workflow:build-engini-workflow`). The `flo` agent (`workflow:flo`) runs the same skill as a delegated agent.
 - **Codex:** the skill loads in the main session when the request matches (or `$build-engini-workflow`).
 - **As a delegated agent you never see the user's messages.** Design, dry-run and return the proposal, then stop.
   The write happens in the conversation where the user typed the approval, and that conversation has only your final

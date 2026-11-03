@@ -41,7 +41,7 @@ Flo stops and tells you when one of these comes back. What **you** do:
 |---|---|---|
 | The skill is not found right after installing | Both tools load plugins at session start | Start a new session |
 | The Flo agent does not load in Codex | Codex may not install a plugin's agent definition (not yet verified) | Use the skill directly ("build an Engini workflow ...") |
-| `/plugin details flo@engini-flo` shows `Hooks (0)` | The guard is not installed | Reinstall from `engini/flo-plugin`; check the plugin is enabled |
+| `/plugin details workflow@engini` shows `Hooks (0)` | The guard is not installed | Reinstall from `engini/workflow-plugin`; check the plugin is enabled |
 | The install check prints `FLO-CANARY-RAN` with no prompt | The guard did not run: no `python3`/`python` (3.8+) on your path, hooks disabled in your settings, the plugin disabled, or an older Claude Code - or your permission mode answered the prompt for you | Fix the cause; until then only your own settings (the safety block) stand in for it |
 | The install check shows a prompt that does not contain `FLO-HOOK-ASK` | The prompt came from your own settings, not from the guard: the guard did not run | Same as above |
 
@@ -61,7 +61,7 @@ Removing it is a deliberate downgrade: only your own settings would be left. Whi
 | **protected file** | It edits the guard itself or your Claude Code / Codex settings | Make that change yourself |
 | **unreadable hook input** | The guard could not read what Claude Code sent it, so it refused (it fails closed) | Update Claude Code; if it persists, report it |
 
-To work without the guard for a session: `/plugin disable flo@engini-flo` (this removes all of its protections).
+To work without the guard for a session: `/plugin disable workflow@engini` (this removes all of its protections).
 
 ## "Nothing is ever blocked in Codex"
 
