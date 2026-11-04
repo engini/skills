@@ -10,7 +10,12 @@
   "plugins": [
     {
       "name": "workflow",
-      "source": "./plugin",
+      "source": {
+        "source": "git-subdir",
+        "url": "https://github.com/engini/skills.git",
+        "path": "plugin",
+        "ref": "v0.4.0"
+      },
       "description": "Flo builds and edits Engini workflows in your own Engini account. Proposes before it writes; workflows are always created turned off."
     }
   ]

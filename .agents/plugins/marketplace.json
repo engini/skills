@@ -4,8 +4,10 @@
     {
       "name": "workflow",
       "source": {
-        "source": "local",
-        "path": "./plugin"
+        "source": "git-subdir",
+        "url": "https://github.com/engini/skills.git",
+        "path": "./plugin",
+        "ref": "v0.4.0"
       },
       "policy": {
         "installation": "AVAILABLE",
