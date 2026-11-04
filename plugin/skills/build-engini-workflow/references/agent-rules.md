@@ -79,8 +79,10 @@ Facts that keep coming back:
 - A workflow built before a builder fix shipped keeps the old stored shape: re-create or re-save it after the fix.
 - Blocks and built-ins a plan can build (`plan-format.md` §1g, §1h, §3): `switch`, `do_while`, `scope`, `onFailure`,
   and the Sort & Filter, Map Array and Parse JSON tools. Query Array is not buildable: leave it for the designer.
+- Table automations (`plan-format.md` §1i): the user gives the table id and the column field names; never guess
+  either from a table or column label.
 
-The five runtime caveats the builder cannot fix - say each one in the proposal when the plan has the feature:
+The six runtime caveats the builder cannot fix - say each one in the proposal when the plan has the feature:
 - **`onFailure`: a caught failure makes the whole run report Success.** Put a notify step in every handler, with a
   fixed message plus the run id (`@@getworkflowhistoryid()`). Never forward `@@lasterrormessage()` /
   `@@lasterror()` / `@@errors(N)` on your own initiative: it can be the failed step's whole request (URL, headers,
@@ -93,6 +95,9 @@ The five runtime caveats the builder cannot fix - say each one in the proposal w
   real record the user shows you or a run's data.
 - **`onFailure` creates a failure path but cannot move or delete one**: changing an existing failure path stays a
   designer action.
+- **A table automation is turned on only in the Engini app** (the table's Automations tab, or the designer): Flo's
+  tools cannot turn it on, even when the user asks. A column reference Flo could not confirm by field name is left
+  for the user to fill in the designer.
 
 ## The proposal
 
@@ -111,6 +116,7 @@ Warnings:
 - MISSING_CONNECTION on <key> - connect it in the designer before turning the workflow on
 - <field> on <key> left for you (dependent dropdown / NEEDS_CUSTOMER_INPUT)
 - <the runtime caveat of each onFailure / do_while / Sort & Filter / Parse JSON step in the plan>
+- <table automation: turn it on in the table's Automations tab; column references left for the designer>
 
 Fingerprint: <8 hex>
 Approve to create in <account> / <workspace> / <environment>? Reply with the fingerprint.

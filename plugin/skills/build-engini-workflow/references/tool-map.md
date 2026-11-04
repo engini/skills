@@ -55,6 +55,12 @@ Notes:
   such fields for the user and list them in the proposal.
 - `get_builder_tool_schema` with a `connectionId` and `get_builder_field_options` are rate-limited vendor reads: read
   each field once per run, not per repair round.
+- **Table automations** (`plan-format.md` §1i): the catalog tools take no table yet, so they do not show the three
+  Tables triggers (search returns none, the schema is `SLUG_NOT_FOUND`), and no tool lists the user's tables or a
+  table's columns. Use the trigger slugs from §1i and ask the user for the table id and the column field names. A
+  compile or create needs nothing more: `compile_workflow_plan` and the two writes accept `table` today. A table
+  automation is reachable through the builder tools only: `get_workflows` and `get_workflow` do not return it, and
+  enable, run and delete answer `404 NOT_FOUND` for it.
 
 ## 2. Other `engini_workflows` tools
 
@@ -173,6 +179,10 @@ Compiler checks:
 | `AI_TOOL_NOT_ALLOWED` | error | Tool is not a plain connector action (block, container, AI Agents app action, authenticated HTTP), or an `aiInputs` field is a URL/host/credential: set it in `inputs` or on the connection |
 | `AI_TOOL_FREEFORM_INPUT` | warning | The LLM fills a SQL/code/script/body field and can write anything there. **List every one in the proposal table** for the user to approve; recommend a read-only DB user |
 | `AI_TOOLS_CLEARED` | warning | The edit left out `memory` or `tools` of an existing agent, so they were removed - resend them from `get_workflow_plan` unless removal is intended |
+| `TABLE_NOT_FOUND` | error | `table` is not a table id, or not one of the user's tables in this workspace and environment. Ask the user for the id from the table's address (`plan-format.md` §1i); never guess one. The message's "GET catalog/tables" is not a builder tool yet |
+| `TABLE_REQUIRED` | error | A Tables trigger needs `table`. On a create, add it. On an edit of an ordinary workflow it cannot be added: build a new table automation instead |
+| `TABLE_NOT_ALLOWED` | error | `table` with a trigger that is not a Tables trigger (an edit whose kept `opaque` trigger is not one). Use a Tables trigger, or leave `table` out |
+| `TABLE_NOT_CHANGEABLE` | error | The table is fixed at create: a different `table` on an edit, a `table` added to an ordinary workflow, or a trigger table input that differs from `table`. Leave `table` out on an edit (it keeps its table) and give the trigger no table input; to use another table, create a new workflow |
 
 Validator checks:
 

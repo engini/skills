@@ -103,6 +103,7 @@ engini_workflows_rerun_execution
     needs a workspace-scoped key for the same workspace and environment as their login; design nothing until it does.
 - [ ] Resolve the target **folder by name** (`get_folders`) and, for an edit, the target **workflow by name**
       (`get_workflows`), never from a pasted id. Zero matches or more than one -> STOP: list the candidates and ask.
+      The one exception is a table automation, which `get_workflows` does not list (`plan-format.md` §1i).
 
 ## 2. Design
 
@@ -127,6 +128,9 @@ engini_workflows_rerun_execution
 - [ ] Before leaving anything for the user, look for a buildable route: a public endpoint that needs no key for the
       same data, or `engini_ai_tools.extract_information` for structured output from AI text (there is no JSON-parse
       formula). Only a missing connection is truly the user's to finish.
+- [ ] **Table automation** (the request starts from a record created, updated or deleted in an Engini table): follow
+      `plan-format.md` §1i. Its three trigger slugs are the one place a slug comes from a reference file; ask the user
+      for the table id and for each column's field name in the same batch as your other questions.
 - [ ] Build the plan per `plan-format.md`. Blocks have no `tool`; the trigger has no `type`.
 
 ## 3. Dry run

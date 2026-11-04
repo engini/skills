@@ -22,6 +22,18 @@ Flo stops and tells you when one of these comes back. What **you** do:
 | 502 `VENDOR_ERROR` | The connected app failed while Flo read from it | The connection may need re-authorizing in Engini. Then retry |
 | 500 `INTERNAL_ERROR` | An Engini server fault | Note the time and contact Engini support. Flo does not retry a write |
 
+## Table automations
+
+| Symptom | Cause | What you do |
+|---|---|---|
+| Flo asks for a table id | No Flo tool can list your tables yet | Open the table in Engini and copy the id from the address bar (`.../tables/<table id>`) |
+| Flo asks for a column's field name | Flo must use the field name (such as `Text1`), not the column label, and cannot list columns yet | In the table, open **Manage Fields** and open the column's menu: **Field Name** is the value Flo needs |
+| Compile says `TABLE_NOT_FOUND` | The id is not one of your tables in this workspace and environment | Check the id, and that you are logged in to the workspace the table lives in (`engini whoami`) |
+| Compile says `TABLE_NOT_CHANGEABLE` | A table automation's table is set when it is created | Ask Flo for a new automation on the other table |
+| A step reads an empty value at run time | The reference used a column label or an unknown name | Fix the reference in the designer with the column's field name; for "record updated", read `newValues.<field name>` |
+| Flo cannot turn the automation on | Table automations are turned on only in the Engini app | Turn it on in the table's **Automations** tab |
+| Flo cannot build a "button clicked" automation | That trigger is not available to Flo | Build it in the Engini designer |
+
 ## Setup problems
 
 | Symptom | Cause | What you do |
