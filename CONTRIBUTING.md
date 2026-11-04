@@ -98,7 +98,7 @@ the hook off on purpose, and a model asked to "print my key" otherwise reads you
    `plugin/.codex-plugin/plugin.json`) to `X.Y.Z`, with the release notes in the PR description. Merge it. Customers
    still get the previous tag.
 2. Run the **release** workflow (Actions -> release -> Run workflow, from `main`, input `tag` = `vX.Y.Z`). After the
-   `flo-plugin-release` environment's reviewer approves, it:
+   `skills-release` environment's reviewer approves, it:
    - checks the tag: `vX.Y.Z`, equal to both plugin manifests' version, not yet existing, ahead of the current pin;
    - runs every gate above on the `main` commit, before any credential exists;
    - makes **one** commit on top of that commit, `Release vX.Y.Z` by the release identity, that changes only the two
@@ -126,7 +126,7 @@ skill (not yet run - no Codex on the build machine).
   nobody may update or delete - a moved tag would silently change what every pinned install fetches.
 - **The release credential lives in the environment, not the repo.** Required reviewers gate only jobs that declare
   the environment; a repository secret is readable by any workflow on any branch. So (admin settings, once):
-  - `FLO_RELEASE_APP_KEY` is an **environment secret** of `flo-plugin-release`, and `FLO_RELEASE_APP_ID`,
+  - `FLO_RELEASE_APP_KEY` is an **environment secret** of `skills-release`, and `FLO_RELEASE_APP_ID`,
     `FLO_RELEASE_NAME`, `FLO_RELEASE_EMAIL` are its **environment variables** - none of them at repository level;
   - the environment has a **required reviewer** and its **deployment branches** are restricted to `main`;
   - `ENGINI_CONTRACT_KEY` (the daily contract check) is a repository secret: a **read-only**, workspace-scoped key

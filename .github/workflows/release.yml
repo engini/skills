@@ -1,6 +1,6 @@
-# Release vX.Y.Z of the workflow plugin from this repo. Manual only, from main, behind the `flo-plugin-release`
+# Release vX.Y.Z of the workflow plugin from this repo. Manual only, from main, behind the `skills-release`
 # environment (required reviewers, deployment branches restricted to main - admin settings), pushed by a GitHub App,
-# never a staff token. FLO_RELEASE_APP_KEY must be an ENVIRONMENT secret of flo-plugin-release (CONTRIBUTING,
+# never a staff token. FLO_RELEASE_APP_KEY must be an ENVIRONMENT secret of skills-release (CONTRIBUTING,
 # "Supply chain"): as a repository secret any branch workflow could read it and skip the reviewers.
 #
 # Installers get only tagged code: both marketplace manifests pin the plugin to a release tag (`ref`). A release
@@ -25,7 +25,7 @@ concurrency:
 jobs:
   release:
     runs-on: ubuntu-24.04
-    environment: flo-plugin-release
+    environment: skills-release
     steps:
       - name: main only
         if: github.ref != 'refs/heads/main'
