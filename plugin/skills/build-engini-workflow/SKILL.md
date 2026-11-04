@@ -103,6 +103,7 @@ engini_workflows_rerun_execution
     needs a workspace-scoped key for the same workspace and environment as their login; design nothing until it does.
 - [ ] Resolve the target **folder by name** (`get_folders`) and, for an edit, the target **workflow by name**
       (`get_workflows`), never from a pasted id. Zero matches or more than one -> STOP: list the candidates and ask.
+      The one exception is a table automation, which `get_workflows` does not list (`plan-format.md` §1i).
 
 ## 2. Design
 
