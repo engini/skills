@@ -1,0 +1,47 @@
+{
+  "_comment": "The one source of truth for what the Flo hook refuses or asks about. tools/generate.py emits the hook's constant block, the SKILL.md never-verb block and the README blocks from this file. Edit here, run python3 tools/generate.py, commit the outputs. never_verbs = never on Flo's own initiative: the hook and the settings ASK the user every time (Codex: prompt). raw_key_* = Flo never runs them: the hook DENIES with instructions, the settings ASK, Codex prompts with a justification to decline and run it in the user's own terminal (no hook there).",
+  "deny_token": "FLO-HOOK-DENY",
+  "ask_token": "FLO-HOOK-ASK",
+  "never_verbs": [
+    "engini_workflows_delete_workflow",
+    "engini_workflows_run_workflow",
+    "engini_workflows_enable_or_disable_workflow",
+    "engini_workflows_rerun_execution"
+  ],
+  "write_verbs_ask": [
+    "engini_workflows_create_workflow_from_plan",
+    "engini_workflows_update_workflow_from_plan"
+  ],
+  "call_value_flags": ["--args", "--file", "--connection", "--toolset", "--llm", "--tool-call-id", "--max-bytes"],
+  "raw_key_commands": [
+    ["connect"],
+    ["login"],
+    ["connections", "create"],
+    ["connections", "update"],
+    ["connections", "delete"],
+    ["connections", "auth-providers", "create"],
+    ["connections", "auth-providers", "update"]
+  ],
+  "raw_key_flags": ["--api-key"],
+  "key_env_vars": ["ENGINI_API_KEY", "ENGINI_API_TOKEN", "ENGINI_COMPANY_TOKEN"],
+  "key_path_patterns": [
+    "(?:\\.config|XDG_CONFIG_HOME\\}?|APPDATA%?|AppData[\\\\/]+Roaming)[\\\\/]+engini\\b",
+    "[\\\\/]engini[\\\\/]+config\\.toml"
+  ],
+  "key_path_display": [
+    "~/.config/engini/config.toml (macOS, Linux)",
+    "$XDG_CONFIG_HOME/engini/config.toml (when XDG_CONFIG_HOME is set)",
+    "%APPDATA%\\engini\\config.toml (Windows)",
+    "%USERPROFILE%\\engini\\config.toml (Windows, when APPDATA is unset)"
+  ],
+  "self_protect_patterns": [
+    "deny-never-verbs",
+    "hooks[\\\\/][A-Za-z0-9_-]*hooks\\.json",
+    "(?<![A-Za-z0-9_-])\\.claude[\\\\/]+(?:plugins|settings)",
+    "(?<![A-Za-z0-9_-])\\.codex[\\\\/]",
+    "(?<![A-Za-z0-9_-])\\.(?:claude|codex)[\\\\/]*(?=[\\s;&|)'\"]|\\Z)",
+    "(?<![A-Za-z0-9_-])\\.claude[\\\\/]+[^\\s\\\\/]*[*?\\[{$`]",
+    "(?<![A-Za-z0-9_-])\\.(?:claude|codex)[\\\\/](?:[^\\s\\\\/;&|<>]*[\\\\/])*\\.\\.?(?=[\\\\/\\s;&|)'\"<>`]|\\Z)",
+    "(?<![A-Za-z0-9_-])(?:cd|pushd|chdir|Set-Location|Push-Location|sl)[ \\t(]+[^;&|\\n]*\\.(?:claude|codex)[\\\\/]"
+  ]
+}

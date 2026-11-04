@@ -1,0 +1,311 @@
+{
+  "application": "engini_workflows",
+  "tools": {
+    "engini_workflows_compile_workflow_plan": {
+      "description": "Compile Workflow Plan",
+      "is_deprecated": false,
+      "properties": [
+        "baseWorkflowId",
+        "plan"
+      ],
+      "required": [
+        "baseWorkflowId",
+        "plan"
+      ],
+      "schema_sha256": "c1763078dc22a1d62a6722fad55ed98ab86cb27fc66fb01f00d004eaf766d77d"
+    },
+    "engini_workflows_create_workflow_from_plan": {
+      "description": "Create Workflow From Plan",
+      "is_deprecated": false,
+      "properties": [
+        "folderId",
+        "plan"
+      ],
+      "required": [
+        "folderId",
+        "plan"
+      ],
+      "schema_sha256": "94eea284edbf2407fbda9769d3f10db9ace3364105e40e401e62adde173ebd09"
+    },
+    "engini_workflows_delete_workflow": {
+      "description": "Delete Workflow",
+      "is_deprecated": false,
+      "properties": [
+        "workflowId"
+      ],
+      "required": [
+        "workflowId"
+      ],
+      "schema_sha256": "c4d8cd6ba551b196a2bbf525a37259cae1a38fc1b8986d73912c85df9ec19fd9"
+    },
+    "engini_workflows_enable_or_disable_workflow": {
+      "description": "Enable or Disable Workflow",
+      "is_deprecated": false,
+      "properties": [
+        "enabled",
+        "workflowId"
+      ],
+      "required": [
+        "enabled",
+        "workflowId"
+      ],
+      "schema_sha256": "9822fb5529b26db975c4d1e9ce65717d36d4da75aa8cc18fd3cf1fa53472bd09"
+    },
+    "engini_workflows_get_builder_field_options": {
+      "description": "Get Builder Field Options",
+      "is_deprecated": false,
+      "properties": [
+        "connectionId",
+        "field",
+        "kind",
+        "slug"
+      ],
+      "required": [
+        "connectionId",
+        "field",
+        "slug"
+      ],
+      "schema_sha256": "d9c07f44d3bde8f31a0c3313525bd7da7c56279dc5484f84fe7891921ba617f1"
+    },
+    "engini_workflows_get_builder_tool_schema": {
+      "description": "Get Builder Tool Schema",
+      "is_deprecated": false,
+      "properties": [
+        "connectionId",
+        "kind",
+        "slug"
+      ],
+      "required": [
+        "slug"
+      ],
+      "schema_sha256": "7cf5af0492d5a28273fe048db4ca1999a9244499a14dbd2fda0bf7a22dab1a45"
+    },
+    "engini_workflows_get_connections": {
+      "description": "Get Connections",
+      "is_deprecated": false,
+      "properties": [
+        "SelectTop"
+      ],
+      "required": [],
+      "schema_sha256": "37b06c54163837ae1cdd0dcf08d6617bceffb7a50169323abb7f7041e7b177ad"
+    },
+    "engini_workflows_get_execution": {
+      "description": "Get Execution",
+      "is_deprecated": false,
+      "properties": [
+        "executionId"
+      ],
+      "required": [
+        "executionId"
+      ],
+      "schema_sha256": "8eba2e869161817be7e4a9642c11b90972f5a1393a55cc26552ce0385e502775"
+    },
+    "engini_workflows_get_execution_log": {
+      "description": "Get Execution Log",
+      "is_deprecated": false,
+      "properties": [
+        "executionId"
+      ],
+      "required": [
+        "executionId"
+      ],
+      "schema_sha256": "b2052cb722b3a5fbf5171820e2b30f2d178dc7fd533991e8063c86cdbb379775"
+    },
+    "engini_workflows_get_execution_step_data": {
+      "description": "Get Execution Step Data",
+      "is_deprecated": false,
+      "properties": [
+        "Filters",
+        "SelectTop",
+        "executionId",
+        "loopPath",
+        "retryNo",
+        "runNumber",
+        "status",
+        "stepNo",
+        "type"
+      ],
+      "required": [
+        "executionId",
+        "stepNo"
+      ],
+      "schema_sha256": "6c795bb4ca030288098475514df8c85321c28fa8f9337ad8bb04f90c531cc5c7"
+    },
+    "engini_workflows_get_executions": {
+      "description": "Get Executions",
+      "is_deprecated": false,
+      "properties": [
+        "Filters",
+        "SelectOffset",
+        "SelectTop",
+        "Sorts",
+        "closedAfter",
+        "closedAt",
+        "closedBefore",
+        "context",
+        "createdAfter",
+        "createdAt",
+        "createdBefore",
+        "createdBy",
+        "executionId",
+        "status",
+        "triggerType",
+        "type",
+        "workflowId"
+      ],
+      "required": [],
+      "schema_sha256": "ce64406f06ab70f182494388a13817e592c1393f047a9dd33d899a67d9c6a5ad"
+    },
+    "engini_workflows_get_folders": {
+      "description": "Get Folders",
+      "is_deprecated": false,
+      "properties": [
+        "Filters",
+        "SelectTop",
+        "Sorts",
+        "createdAt",
+        "name",
+        "type"
+      ],
+      "required": [],
+      "schema_sha256": "78d33f970b1ae671318b86581b75b1d0a0908ebe10a785fa53a0e4f2fb6a9931"
+    },
+    "engini_workflows_get_workflow": {
+      "description": "Get Workflow",
+      "is_deprecated": false,
+      "properties": [
+        "workflowId"
+      ],
+      "required": [
+        "workflowId"
+      ],
+      "schema_sha256": "83a35355cf4423d3174a32d1fdc690c06981447ece64ae2b8e9769e338539df5"
+    },
+    "engini_workflows_get_workflow_plan": {
+      "description": "Get Workflow Plan",
+      "is_deprecated": false,
+      "properties": [
+        "workflowId"
+      ],
+      "required": [
+        "workflowId"
+      ],
+      "schema_sha256": "59a6e025573e3376da158b67c749b1898cc8b31f39377c9db79c4d4be94327d9"
+    },
+    "engini_workflows_get_workflow_revisions": {
+      "description": "Get Workflow Revisions",
+      "is_deprecated": false,
+      "properties": [
+        "Filters",
+        "SelectTop",
+        "Sorts",
+        "createdAfter",
+        "createdAt",
+        "createdBefore",
+        "createdBy",
+        "revisionId",
+        "workflowId"
+      ],
+      "required": [
+        "workflowId"
+      ],
+      "schema_sha256": "725468d8b3d1621443c67ed248eb68dcda0fb781598a0b6d7712c2fec1cf4ba9"
+    },
+    "engini_workflows_get_workflows": {
+      "description": "Get Workflows",
+      "is_deprecated": false,
+      "properties": [
+        "Filters",
+        "SelectTop",
+        "Sorts",
+        "blocked",
+        "connectionId",
+        "createdBy",
+        "deleted",
+        "deletedAfter",
+        "enabled",
+        "folderId",
+        "folderName",
+        "lastRunAfter",
+        "lastRunAt",
+        "lastRunBefore",
+        "name",
+        "type",
+        "updatedAfter",
+        "updatedAt",
+        "updatedBefore",
+        "updatedBy",
+        "workflowId"
+      ],
+      "required": [],
+      "schema_sha256": "daf96b1a7e8b58a1cd6ce11d7cf3ee1f844f152e82dc1054b7b17bb72baf525a"
+    },
+    "engini_workflows_list_builder_connections": {
+      "description": "List Builder Connections",
+      "is_deprecated": false,
+      "properties": [
+        "app"
+      ],
+      "required": [
+        "app"
+      ],
+      "schema_sha256": "5f9af7079e78a4bbfe013c57e3b6645414e80c385ec9e953fb2f400c9bd53308"
+    },
+    "engini_workflows_rerun_execution": {
+      "description": "Rerun Execution",
+      "is_deprecated": false,
+      "properties": [
+        "executionId"
+      ],
+      "required": [
+        "executionId"
+      ],
+      "schema_sha256": "65a26210982ed0d91ff38adfe33c20d59fbebb2cd209f0d042995de69c27376f"
+    },
+    "engini_workflows_run_workflow": {
+      "description": "Run Workflow",
+      "is_deprecated": false,
+      "properties": [
+        "body",
+        "workflowId"
+      ],
+      "required": [
+        "body",
+        "workflowId"
+      ],
+      "schema_sha256": "3e70e8709326436344b8fe8c87d70759edb79483371354f8f7ecde7c59e87d2d"
+    },
+    "engini_workflows_search_builder_catalog": {
+      "description": "Search Builder Catalog",
+      "is_deprecated": false,
+      "properties": [
+        "app",
+        "kind",
+        "q",
+        "top"
+      ],
+      "required": [
+        "app",
+        "kind",
+        "q",
+        "top"
+      ],
+      "schema_sha256": "e665c71b52b904e514aef9ba32e3bad37fa494b1d6dc87fc542dc41ba9a5bc94"
+    },
+    "engini_workflows_update_workflow_from_plan": {
+      "description": "Update Workflow From Plan",
+      "is_deprecated": false,
+      "properties": [
+        "expectedRevisionId",
+        "plan",
+        "workflowId"
+      ],
+      "required": [
+        "expectedRevisionId",
+        "plan",
+        "workflowId"
+      ],
+      "schema_sha256": "f2ef3fd0607e38bdf8f08bb89d6e2668d62d47119c36a4d5099ca9f83920a011"
+    }
+  }
+}

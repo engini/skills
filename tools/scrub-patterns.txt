@@ -1,0 +1,28 @@
+# Rows for tools/scrub-check.sh: "<scope> <python regex>", scope `repo` (every file) or `payload` (plugin/ only).
+# Every row is a GENERIC shape - never a real id, name or host: this file is public. Every row has a planted fixture
+# on the same line number of tools/scrub-fixtures.txt (comments aside) that must turn the check red, and the check
+# must go green again without the row (tools/mutation-test.py).
+# Header names (x-api-key, Authorization, Bearer) are NOT rows: the payload must name them. Only key-shaped values are.
+repo (?i)\b(?:[a-z0-9-]+\.)*(?:staging|stage|dev|internal|qa|uat|dr|test|local|preview|pr-[0-9]+)\.engini\.(?:io|ai|com)\b
+repo \b[0-9]{9,12}\b
+repo (?i)\b(?:monday|ticket|jira|issue|task|item)\b[ :#-]{0,3}[0-9]{4,}\b
+repo [#][0-9]{3,5}\b
+repo \b[A-Za-z][A-Za-z0-9_.-]*#[0-9]+\b
+repo (?i)\b(?:connection|connector|app|account|company|workspace|environment|board|workflow|folder|activity|template)[ _-]?(?:id)?["']?\s*[#:=]?\s*["']?[0-9]{4,}\b
+repo \bapp-[0-9]{2,}\b
+repo \b[A-Za-z0-9_-]+\.repo\b|\bdev-plan\b|\bPart [AB]\b|\((?:Part [AB] )?Steps? [0-9]+[a-z]?\)
+repo /(?:Users|home)/[A-Za-z][A-Za-z0-9._-]{2,}/|/private/tmp/|[A-Za-z]:\\Users\\[A-Za-z]{3,}
+repo \.(?:cs|csproj|sln)\b
+repo \b[A-Z][A-Za-z]+(?:Compiler|Validator|Picker|Rewriter|Catalog|ParserContext|Controller|Repository|DbContext)\b
+repo \bEngini\.[A-Z][A-Za-z]+
+repo \b[A-Z][a-z]+[A-Z][a-z]+(?:Api|BackEnd|Backend)\b
+repo Migrations/|\bvalues\.[a-z0-9-]+\.ya?ml\b
+repo \.\./v1\b
+repo [0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}
+repo (?<!")\b20[0-9]{2}-[01][0-9]-[0-3][0-9]\b(?!")
+repo [A-Za-z0-9._%+-]+@(?!(?:[A-Za-z0-9-]+\.)*(?:example(?:\.(?:com|org|net))?|invalid|test|localhost)\b)[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}\b
+repo \beng_(?!EVALFAKEKEY0+\b)[A-Za-z0-9]{20,}
+repo ([Xx]-[Aa]pi-[Kk]ey|Authorization|Bearer)["']?:?[ \t]*["']?[A-Za-z0-9._~+/=-]{24,}
+payload docs/
+payload \.claude/
+payload [Ss]eed\b

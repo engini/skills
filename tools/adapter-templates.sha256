@@ -1,0 +1,3 @@
+# sha256 of each adapter with name/description removed. Update only in a reviewed PR: tools/adapter-check.sh --print
+53be5cdb8ec27147222a5e91d7fd399bc56051723301f5144fddcd67f1ba46ca  plugin/agents/flo.md
+99c222e7a51de2fe7deddee0b792dfefca3308678dfdd5bc0fbb0b77e6abcf6a  plugin/.codex/agents/flo.toml
