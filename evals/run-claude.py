@@ -223,9 +223,11 @@ def main(argv):
             'PASS' if not fails else 'FAIL', case['pass'], case['id'], 'on' if hook else 'off', len(uses), len(stub),
             '; '.join(fails)))
         total_fail += bool(fails)
-        if hook and '--no-hook-control' in argv:
-            uses, results, reply, stub = run_case(case, dirs[False], model, settings, work)
-            ctl = check(case, uses, results, reply, stub)
+        # the control proves the HOOK made the difference, so it only applies to a case whose pass depends on the
+        # hook's ask or deny (a happy path passes with or without it)
+        if hook and '--no-hook-control' in argv and (case['expect'].get('ask_token') or case['expect'].get('deny_token')):
+            uses, results, reply, before, stub = run_case(case, dirs[False], model, settings, work)
+            ctl = check(case, uses, results, reply, before, stub)
             print('%s control %-18s hook=off (must FAIL) %s' % ('PASS' if ctl else 'FAIL', case['id'], '; '.join(ctl)))
             total_fail += not ctl
     print('evals: %d case(s), %d failing. Transcripts and stub logs: %s' % (len(cases), total_fail, work))
