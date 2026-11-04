@@ -7,7 +7,7 @@
     "url": "https://engini.ai"
   },
   "homepage": "https://docs.engini.ai",
-  "repository": "https://github.com/engini/workflow-plugin",
+  "repository": "https://github.com/engini/skills",
   "license": "MIT",
   "keywords": ["engini", "workflow", "automation", "ipaas", "no-code"],
   "skills": "./skills/"

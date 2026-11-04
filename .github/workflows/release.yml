@@ -1,0 +1,141 @@
+# Release vX.Y.Z of the workflow plugin from this repo. Manual only, from main, pushed by a GitHub App, never a staff
+# token. Two jobs:
+#   gates    no environment, no credential: checks the tag, runs the private term list over the tree and every commit
+#            since the last release tag (fails closed when SCRUB_DENYLIST is absent), runs every gate including the
+#            npm-installed Claude Code validators, and validates the bumped manifests. Outputs the gated commit.
+#   release  behind the `skills-release` environment (required reviewer, deployment branches restricted to main, no
+#            admin bypass - admin settings). Checks out exactly the gated commit, runs only python3 and git (no npm:
+#            nothing installed here can outlive its step and read the App token), then makes the release.
+# FLO_RELEASE_APP_KEY must be an ENVIRONMENT secret of skills-release (CONTRIBUTING, "Supply chain"): as a repository
+# secret any branch workflow could read it and skip the reviewers.
+#
+# Installers get only tagged code: both marketplace manifests pin the plugin to a release tag (`ref`) AND a commit
+# (`sha`), which both tools install by id - a branch named like the tag cannot shadow it. The release
+#   1. makes ONE commit on top of the gated main commit that changes only the two marketplace pins to vX.Y.Z + the
+#      gated commit's sha, and tags THAT commit (so a marketplace added at the tag pins itself; plugin/ is
+#      byte-identical between the gated commit and the tag, which is why the gated commit can be the pinned sha);
+#   2. pushes main and the tag in one atomic push: both land or neither does. If main moved meanwhile the push is
+#      rejected (no force, ever) and nothing is released - re-run from the new main.
+name: release
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'vX.Y.Z (must equal both plugin manifests version)'
+        required: true
+permissions:
+  contents: read
+concurrency:
+  group: release
+  cancel-in-progress: false
+jobs:
+  gates:
+    runs-on: ubuntu-24.04
+    outputs:
+      base: ${{ steps.base.outputs.sha }}
+    steps:
+      - name: main only
+        if: github.ref != 'refs/heads/main'
+        run: 'echo "::error::release runs from main only (got $GITHUB_REF)"; exit 1'
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - id: base
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+      - name: the tag may be released now
+        env:
+          TAG: ${{ inputs.tag }}
+        run: python3 tools/release-check.py --release "$TAG"
+      - name: private term list (whole repo and every commit since the last release tag; fails without the list)
+        env:
+          SCRUB_DENYLIST: ${{ secrets.SCRUB_DENYLIST }}
+        run: |
+          set -euo pipefail
+          if last=$(git describe --tags --abbrev=0 --match 'v[0-9]*' HEAD 2>/dev/null); then range="$last..HEAD"; else range=HEAD; fi
+          python3 tools/scrub-literals.py --require --commits "$range"
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+      - name: gates
+        run: |
+          set -euo pipefail
+          bash tools/scrub-check.sh
+          python3 tools/generate.py --check
+          python3 tools/rules-check.py
+          bash tools/adapter-check.sh
+          python3 tools/hook-selftest.py
+          python3 tools/release-check.py
+          python3 tools/mutation-test.py
+          npm i -g @anthropic-ai/claude-code@2.1.316
+          claude plugin validate --strict plugin
+          claude plugin validate --strict .
+          claude plugin validate --strict --profile directory plugin
+      - name: the release manifests validate (the same bump the release job makes, thrown away here)
+        env:
+          TAG: ${{ inputs.tag }}
+          BASE: ${{ steps.base.outputs.sha }}
+        run: |
+          set -euo pipefail
+          python3 tools/release-check.py --bump "$TAG" --sha "$BASE"
+          claude plugin validate --strict .
+          git checkout -- .claude-plugin/marketplace.json .agents/plugins/marketplace.json
+  release:
+    needs: gates
+    runs-on: ubuntu-24.04
+    environment: skills-release
+    steps:
+      - name: main only
+        if: github.ref != 'refs/heads/main'
+        run: 'echo "::error::release runs from main only (got $GITHUB_REF)"; exit 1'
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ needs.gates.outputs.base }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: the gated commit, and the tag may still be released
+        env:
+          TAG: ${{ inputs.tag }}
+          BASE: ${{ needs.gates.outputs.base }}
+        run: |
+          set -euo pipefail
+          [ -n "$BASE" ] && [ "$(git rev-parse HEAD)" = "$BASE" ] || { echo "::error::not the gated commit"; exit 1; }
+          python3 tools/release-check.py --release "$TAG"
+      - name: release commit and tag (local only)
+        env:
+          TAG: ${{ inputs.tag }}
+          BASE: ${{ needs.gates.outputs.base }}
+          NAME: ${{ vars.FLO_RELEASE_NAME }}
+          EMAIL: ${{ vars.FLO_RELEASE_EMAIL }}
+        run: |
+          set -euo pipefail
+          [ -n "$NAME" ] && [ -n "$EMAIL" ] || { echo "::error::FLO_RELEASE_NAME / FLO_RELEASE_EMAIL are not set"; exit 1; }
+          python3 tools/release-check.py --bump "$TAG" --sha "$BASE"
+          changed=$(git status --porcelain | awk '{print $2}' | LC_ALL=C sort | tr '\n' ' ')
+          [ "$changed" = ".agents/plugins/marketplace.json .claude-plugin/marketplace.json " ] || {
+            echo "::error::the release commit may change only the two marketplace pins, got: $changed"; exit 1; }
+          export GIT_AUTHOR_NAME="$NAME" GIT_AUTHOR_EMAIL="$EMAIL" GIT_COMMITTER_NAME="$NAME" GIT_COMMITTER_EMAIL="$EMAIL"
+          git -c commit.gpgsign=false commit -q --no-verify -m "Release $TAG" -- .claude-plugin/marketplace.json .agents/plugins/marketplace.json
+          git -c tag.gpgsign=false -c user.name="$NAME" -c user.email="$EMAIL" tag -a "$TAG" -m "Release $TAG"
+          [ "$(git rev-parse HEAD~1)" = "$BASE" ] || { echo "::error::release commit is not one commit on top of $BASE"; exit 1; }
+          git diff --quiet "$BASE" HEAD -- plugin || { echo "::error::plugin/ changed in the release commit"; exit 1; }
+          python3 tools/release-check.py
+          echo "hook SHA-256 (put it in the release notes): $(sha256sum plugin/hooks/deny-never-verbs.py | cut -d' ' -f1)"
+      - id: app
+        uses: actions/create-github-app-token@d72941d797fd3113feb6b93fd0dec494b13a2547 # v1.12.0
+        with:
+          app-id: ${{ vars.FLO_RELEASE_APP_ID }}
+          private-key: ${{ secrets.FLO_RELEASE_APP_KEY }}
+          owner: engini
+          repositories: skills
+          permission-contents: write
+      - name: push main and the tag atomically
+        env:
+          TOKEN: ${{ steps.app.outputs.token }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          # --atomic: main and the tag land together or not at all; a fast-forward only, never --force.
+          git push --atomic "https://x-access-token:${TOKEN}@github.com/engini/skills.git" \
+            "HEAD:refs/heads/main" "refs/tags/$TAG:refs/tags/$TAG"
+          echo "released $TAG at $(git rev-parse HEAD)"

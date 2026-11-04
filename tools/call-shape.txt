@@ -1,0 +1,27 @@
+# The exact `engini tools call` shape the corpus ships. The hook and its self-test match against this.
+# Source: plugin/skills/build-engini-workflow/SKILL.md (top) and references/tool-map.md (top). Every builder call,
+# read or write, uses this one shape.
+
+engini tools call <slug> --args - --connection <connection id> --max-bytes 0 <<'EOF'
+
+# payload:            heredoc (not a pipe). The JSON arguments are the heredoc body, so they ARE part of the
+#                     command string a PreToolUse hook sees.
+# delimiter:          always the quoted literal <<'EOF' (no expansion inside the body); exactly one `<<`, never `<<<`.
+# start line:         the FIRST line of the Bash command (one call per command), ends with <<'EOF' - nothing
+#                     follows it on that line (no `&&`, `;`, `|`, redirect), and only plain words precede it.
+#                     The hook leaves any other heredoc in and judges it as code.
+# argument order:     `tools call`, the slug, `--args -`, `--connection <id>`, `--max-bytes 0`, then the heredoc opener.
+# body:               one JSON object (the tool's arguments). Closing line: EOF alone.
+# --max-bytes 0:      on every call - results are never spilled to the CLI's local result cache.
+# no files:           the corpus never writes `--args @file`; a file is a documented last resort (mktemp -d, 0700, trap).
+#
+# Not covered by this shape (the corpus also runs these, none take a payload):
+#   engini --version
+#   engini whoami --json
+#   engini connections list --application engini_workflows --json
+#   engini tools list --application engini_workflows
+#   engini tools get <slug> --json
+#   [ -n "$ENGINI_API_KEY" ]      (presence test only)
+#   shasum -a 256 <<'EOF'                  (proposal fingerprint; or sha256sum). Body: the header line, then the
+#                                          one-line plan JSON; closing line EOF. Quoted delimiter, so this heredoc
+#                                          also carries the plan JSON in the command string a hook sees.

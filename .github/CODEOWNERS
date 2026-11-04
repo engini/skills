@@ -1,0 +1,15 @@
+# Every change needs review. The paths below are where the never-verbs are stated (SKILL.md), enforced (hooks/),
+# generated and gated (tools/), released (.github/workflows/) and where every installer is redirected (the two root
+# marketplace manifests and their release pin, the two plugin manifests that declare the hooks key). This repo is
+# public and is what customers install: write access here is code execution on every installer's workstation, next
+# to their Engini key. Branch protection must require TWO approving reviews including a code owner (an admin
+# setting - see CONTRIBUTING.md); a second owner is still to be named.
+*                                                   @michael-engini
+/plugin/skills/build-engini-workflow/SKILL.md       @michael-engini
+/plugin/hooks/                                      @michael-engini
+/tools/                                             @michael-engini
+/.github/                                           @michael-engini
+/.claude-plugin/marketplace.json                    @michael-engini
+/.agents/plugins/marketplace.json                   @michael-engini
+/plugin/.claude-plugin/                             @michael-engini
+/plugin/.codex-plugin/                              @michael-engini

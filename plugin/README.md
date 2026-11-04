@@ -21,23 +21,29 @@ nothing your key could not do by hand - which is also the honest limit of every 
 
 ## Install
 
-**Claude Code**
+**Claude Code** - in your terminal:
 
 ```text
-/plugin marketplace add engini/workflow-plugin
-/plugin install workflow@engini
+claude plugin marketplace add engini/skills
+claude plugin install workflow@engini
 ```
 
-To stay on one reviewed release, add the marketplace pinned to its tag instead:
-`/plugin marketplace add https://github.com/engini/workflow-plugin.git#vX.Y.Z` (the release notes give the tag).
+(or `/plugin marketplace add engini/skills` and `/plugin install workflow@engini` inside a session).
+
+The marketplace pins Flo to a **release tag**: you install the last tagged release, never unreleased work on `main`.
+To stay on one reviewed release even when you update, add the marketplace pinned to its tag instead:
+`claude plugin marketplace add https://github.com/engini/skills.git#vX.Y.Z` (the release notes give the tag).
 Claude Code does not update plugins on its own; neither tool signs or verifies a plugin, so the pinned form is the
 one to use if you review what you install.
 
-**Codex** (not yet verified on a real Codex install - treat these two lines as provisional)
+**Codex** (not yet verified on a real Codex install - treat these lines as provisional)
 
 ```text
-codex plugin marketplace add https://github.com/engini/workflow-plugin.git --sparse .agents/plugins
+codex plugin marketplace add engini/skills --sparse .agents/plugins
 ```
+
+The Codex marketplace pins Flo to the same release tag. To stay on one release, add it pinned:
+`codex plugin marketplace add engini/skills --ref vX.Y.Z --sparse .agents/plugins`.
 
 Then install **workflow** from the `/plugins` browser and start a **new session** - the skill is not found until you do.
 Codex has no Flo hook (see "What Flo will never do on his own"), so also paste the Codex rules from the safety block below.
@@ -308,22 +314,22 @@ writable root or Flo skips them. Not yet verified on a real Codex install.
 
 ## Moving from flo@engini-flo
 
-Version 0.3.0 renamed the install: the repo is `engini/workflow-plugin`, the marketplace is `engini` and the plugin is
-`workflow` (the agent is still **Flo**; its skill is now `/workflow:build-engini-workflow`). The old
-`engini/flo-plugin` address redirects to the new repo, so an existing `flo@engini-flo` install keeps working until you
-move. To move:
+Version 0.3.0 renamed the install: the marketplace is `engini` and the plugin is `workflow` (the agent is still
+**Flo**; its skill is now `/workflow:build-engini-workflow`). The repo is now `engini/skills`; the old
+`engini/flo-plugin` and `engini/workflow-plugin` addresses redirect to it, so an existing `flo@engini-flo` install
+keeps working until you move. To move:
 
 **Claude Code**
 
 ```text
 /plugin uninstall flo@engini-flo
 /plugin marketplace remove engini-flo
-/plugin marketplace add engini/workflow-plugin
+/plugin marketplace add engini/skills
 /plugin install workflow@engini
 ```
 
 **Codex:** remove the old **flo** plugin and the `engini-flo` marketplace in `/plugins`, then add
-`https://github.com/engini/workflow-plugin.git --sparse .agents/plugins` as shown under Install and install **workflow**
+`engini/skills --sparse .agents/plugins` as shown under Install and install **workflow**
 from the browser. Start a new session afterwards.
 
 ## Updating and uninstalling
