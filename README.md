@@ -28,7 +28,7 @@ Then install **workflow** from the `/plugins` browser and start a new session.
 ## Releases
 
 You always install a **tagged release**, never unreleased work on `main`: both marketplace manifests pin the plugin to
-a release tag, and only a release moves the pin. To stay on one release even when you update, add the marketplace at
+a release tag and its commit id, and only a release moves the pin. To stay on one release even when you update, add the marketplace at
 its tag: `claude plugin marketplace add https://github.com/engini/skills.git#vX.Y.Z`, or
 `codex plugin marketplace add engini/skills --ref vX.Y.Z --sparse .agents/plugins`. See
 [Releases](https://github.com/engini/skills/releases) for the notes and the guard script's SHA-256.
