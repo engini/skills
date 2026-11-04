@@ -1,5 +1,6 @@
-# Every gate that needs no secret and no model: generated blocks, rules, hook self-test, whole-repo scrub, adapters,
-# the release pin, mutation proofs, and the Claude Code validators. Actions are pinned by SHA.
+# Every gate that needs no model: generated blocks, rules, hook self-test, whole-repo scrub (and the PR's commits),
+# the private term list (the one secret, SCRUB_DENYLIST: plain text, not a credential), adapters, the release pin,
+# mutation proofs, and the Claude Code validators. Actions are pinned by SHA.
 name: ci
 on:
   pull_request:
@@ -24,11 +25,34 @@ jobs:
         run: python3 tools/rules-check.py
       - name: hook self-test
         run: python3 tools/hook-selftest.py
-      - name: scrub (whole repo)
-        run: bash tools/scrub-check.sh
+      - name: commits to check (this PR's commits, or what this push added to main)
+        env:
+          EVENT: ${{ github.event_name }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+          BEFORE: ${{ github.event.before }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT" = pull_request ]; then range="$PR_BASE..$PR_HEAD"
+          elif git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then range="$BEFORE..$GITHUB_SHA"
+          else range="$GITHUB_SHA^!"; fi
+          echo "COMMITS=$range" >> "$GITHUB_ENV"
+      - name: scrub (whole repo; on a PR also its commit messages and authors)
+        env:
+          EVENT: ${{ github.event_name }}
+        run: |
+          # A push to main carries GitHub's squash suffix "(#N)", which a row forbids in authored text: the commit
+          # scan runs where the author still controls the message, on the PR.
+          if [ "$EVENT" = pull_request ]; then bash tools/scrub-check.sh --commits "$COMMITS"; else bash tools/scrub-check.sh; fi
+      - name: private term list (whole repo and the same commits; skipped with a notice when the secret is absent)
+        env:
+          # one term per line, never in this repo; a PR from a fork gets no secrets, so this step skips there and
+          # the push run on main and the release (which fails without it) catch it
+          SCRUB_DENYLIST: ${{ secrets.SCRUB_DENYLIST }}
+        run: python3 tools/scrub-literals.py --commits "$COMMITS"
       - name: adapters
         run: bash tools/adapter-check.sh
-      - name: release pin (both marketplaces pin an existing release tag)
+      - name: release pin (both marketplaces pin an existing release tag + its commit; no v* branch exists)
         run: python3 tools/release-check.py
       - name: every gate can go red
         run: python3 tools/mutation-test.py

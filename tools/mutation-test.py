@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Prove every gate can go red: hook, rules, adapters, scrub and the release pin. Not shipped.
+"""Prove every gate can go red: hook, rules, adapters, scrub, the private term check and the release pin. Not shipped.
 
   python3 tools/mutation-test.py
 
@@ -243,7 +243,10 @@ def main():
             survived.append('scrub row ' + row)
         shutil.rmtree(d)
 
+    survived += scrub_extra_mutations()
+    survived += literal_mutations()
     survived += release_check_mutations()
+    survived += release_git_mutations()
     print('mutation-test: %d survived' % len(survived))
     return 1 if survived else 0
 
@@ -276,11 +279,20 @@ def release_check_mutations():
     def other_repo(e):
         e['source']['url'] = 'https://github.com/someone/fork.git'
 
-    def add_sha(e):
-        e['source']['sha'] = '0' * 40
+    def add_branch(e):
+        e['source']['branch'] = 'main'
 
     def drop_ref(e):
         del e['source']['ref']
+
+    def drop_sha(e):
+        del e['source']['sha']
+
+    def short_sha(e):
+        e['source']['sha'] = e['source']['sha'][:12]
+
+    def other_sha(e):
+        e['source']['sha'] = '0' * 40
 
     cases = [
         ('pin a branch (main)', setter(claude, ref('main'))),
@@ -291,7 +303,11 @@ def release_check_mutations():
         ('the two marketplaces pin different tags', setter(codex, ref('v0.0.1'))),
         ('pin ahead of the plugin version', lambda d: [setter(m, ref('v99.0.0'))(d) for m in (claude, codex)]),
         ('source points at another repo', setter(claude, other_repo)),
-        ('an extra selector rides along', setter(codex, add_sha)),
+        ('an extra selector rides along', setter(codex, add_branch)),
+        ('no sha: the name alone decides', setter(claude, drop_sha)),
+        ('Codex has no sha', setter(codex, drop_sha)),
+        ('abbreviated sha', setter(claude, short_sha)),
+        ('the two marketplaces pin different commits', setter(codex, other_sha)),
     ]
     for name, fn in cases:
         d = copy_repo()
@@ -314,6 +330,268 @@ def release_check_mutations():
         if not rc:
             survived.append('release: ' + name)
     shutil.rmtree(d)
+    return survived
+
+
+TEST_TERM = 'qzx-test-only-term-7f3'   # made up: the real list is private and never reaches this repo
+TEST_ID = '48151623'                   # a made-up digit-only term
+
+
+def literal_mutations():
+    """tools/scrub-literals.py (the private term list, from SCRUB_DENYLIST) goes red on a planted term in a file, in a
+    comment line of the scrub shape files, in a commit message and in a commit author - and never prints the term."""
+    survived = []
+    terms = TEST_TERM + '\n\n' + TEST_ID + '\n'
+
+    def tree(plants):
+        d = tempfile.mkdtemp(prefix='flo-lit-')
+        os.makedirs(os.path.join(d, 'tools'))
+        shutil.copy(os.path.join(ROOT, 'tools/scrub-literals.py'), os.path.join(d, 'tools'))
+        for rel, text in plants.items():
+            os.makedirs(os.path.dirname(os.path.join(d, rel)), exist_ok=True)
+            open(os.path.join(d, rel), 'w').write(text)
+        return d
+
+    def lit(d, env, *args):
+        e = {k: v for k, v in os.environ.items() if k != 'SCRUB_DENYLIST'}
+        if env is not None:
+            e['SCRUB_DENYLIST'] = env
+        p = subprocess.run([sys.executable, 'tools/scrub-literals.py'] + list(args), cwd=d, env=e,
+                           stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        return p.returncode, p.stdout.decode('utf-8', 'replace')
+
+    def git_repo(d, author='Someone', message='a plain change'):
+        g = ['git', '-c', 'init.defaultBranch=main', '-c', 'commit.gpgsign=false']
+        env = dict(os.environ, GIT_AUTHOR_NAME=author, GIT_AUTHOR_EMAIL='someone@example.com',
+                   GIT_COMMITTER_NAME='Someone', GIT_COMMITTER_EMAIL='someone@example.com')
+        for cmd in (['init', '-q'], ['add', '-A'], ['commit', '-q', '-m', message]):
+            subprocess.run(g + cmd, cwd=d, env=env, check=True, stdout=subprocess.DEVNULL)
+
+    cases = [
+        # (name, plants, env, args, git (author, message) or None, must be red)
+        ('term planted in a tooling file', {'evals/f.md': 'see %s here\n' % TEST_TERM}, terms, [], None, True),
+        ('term planted in the payload', {'plugin/f.md': 'x\nsee %s here\n' % TEST_TERM}, terms, [], None, True),
+        ('term in a comment line of scrub-patterns.txt',
+         {'tools/scrub-patterns.txt': '# about %s\nrepo x\n' % TEST_TERM}, terms, [], None, True),
+        ('digit-only term standing alone', {'evals/f.md': 'id %s here\n' % TEST_ID}, terms, [], None, True),
+        ('term in a commit message', {'evals/f.md': 'clean\n'}, terms, ['--commits', 'HEAD'],
+         ('Someone', 'fix for %s' % TEST_TERM), True),
+        ('term as the commit author', {'evals/f.md': 'clean\n'}, terms, ['--commits', 'HEAD'],
+         (TEST_TERM, 'a plain change'), True),
+        ('release: no term list at all (--require)', {'evals/f.md': 'clean\n'}, None, ['--require'], None, True),
+        ('release: empty term list (--require)', {'evals/f.md': 'clean\n'}, '\n \n', ['--require'], None, True),
+    ]
+    controls = [
+        ('clean tree', {'evals/f.md': 'clean\n'}, terms, [], None),
+        ('digit-only term inside a hash', {'evals/f.md': 'sha ab%scd\n' % TEST_ID}, terms, [], None),
+        ('rule line of scrub-fixtures.txt', {'tools/scrub-fixtures.txt': 'use %s\n' % TEST_TERM}, terms, [], None),
+        ('CI without the secret (fork PR): notice, skipped', {'evals/f.md': 'see %s\n' % TEST_TERM}, None, [], None),
+        ('clean commits', {'evals/f.md': 'clean\n'}, terms, ['--commits', 'HEAD'], ('Someone', 'plain')),
+    ]
+    for name, plants, env, args, commit, _ in cases:
+        d = tree(plants)
+        if commit:
+            git_repo(d, *commit)
+        rc, out = lit(d, env, *args)
+        leaked = TEST_TERM in out or TEST_ID in out
+        ok = rc != 0 and not leaked
+        print('%s literals: %s%s' % ('RED ' if ok else 'SURVIVED', name, ' (PRINTED THE TERM)' if leaked else ''))
+        if not ok:
+            survived.append('literals: ' + name)
+        shutil.rmtree(d)
+    for name, plants, env, args, commit in controls:
+        d = tree(plants)
+        if commit:
+            git_repo(d, *commit)
+        rc, out = lit(d, env, *args)
+        ok = rc == 0 and (env is not None or '::notice::' in out)
+        print('%s literals control: %s' % ('green' if ok else 'BROKEN', name))
+        if not ok:
+            survived.append('literals control: ' + name)
+        shutil.rmtree(d)
+    return survived
+
+
+def scrub_extra_mutations():
+    """Shapes the one-fixture-per-row table cannot hold: email-exemption bypasses, and the commit scan."""
+    survived = []
+    rows_file = os.path.join(ROOT, 'tools/scrub-patterns.txt')
+
+    def scrub(lines, commit=None):
+        d = tempfile.mkdtemp(prefix='flo-scrub2-')
+        os.makedirs(os.path.join(d, 'tools'))
+        os.makedirs(os.path.join(d, 'evals'))
+        shutil.copy(os.path.join(ROOT, 'tools/scrub-check.sh'), os.path.join(d, 'tools'))
+        shutil.copy(rows_file, os.path.join(d, 'tools'))
+        open(os.path.join(d, 'evals/f.md'), 'w').write('\n'.join(lines) + '\n')
+        args = ['bash', 'tools/scrub-check.sh']
+        if commit:
+            author, message = commit
+            g = ['git', '-c', 'init.defaultBranch=main', '-c', 'commit.gpgsign=false']
+            env = dict(os.environ, GIT_AUTHOR_NAME='Someone', GIT_AUTHOR_EMAIL=author,
+                       GIT_COMMITTER_NAME='Someone', GIT_COMMITTER_EMAIL='someone@example.com')
+            for cmd in (['init', '-q'], ['add', '-A'], ['commit', '-q', '-m', message]):
+                subprocess.run(g + cmd, cwd=d, env=env, check=True, stdout=subprocess.DEVNULL)
+            args += ['--commits', 'HEAD']
+        rc = run(args, d)
+        shutil.rmtree(d)
+        return rc
+
+    at = '@'  # the planted values are assembled at run time, so this file itself stays clean for the scrub
+    reds = [
+        ('email: allowlisted word as a host prefix', ['ask jane' + at + 'test-company.com first'], None),
+        ('email: allowlisted domain followed by more labels', ['ask jane' + at + 'example.com.evil.com first'], None),
+        ('email: internal host under an allowlisted label', ['ask a' + at + 'dev.test' + '.engini.io first'], None),
+        ('commit message: a ticket reference', ['clean'], ('someone' + at + 'example.com', 'fix (ticket ' + '48213)')),
+        ('commit author: a real-looking address', ['clean'], ('jane.doe' + at + 'contoso.com', 'plain')),
+    ]
+    greens = [
+        ('email: example addresses, sentence-final dot',
+         ['eval@example.com', 'a@example.org', 'x@foo.test', 'write to a@example.com.'], None),
+        ('commit: GitHub and Claude no-reply identities',
+         ['clean'], ('123+someone' + at + 'users.noreply.github.com',
+                     'plain\n\nCo-Authored-By: Claude <noreply' + at + 'anthropic.com>')),
+    ]
+    for name, lines, commit in reds:
+        rc = scrub(lines, commit)
+        print('%s scrub: %s' % ('RED ' if rc else 'SURVIVED', name))
+        if not rc:
+            survived.append('scrub: ' + name)
+    for name, lines, commit in greens:
+        rc = scrub(lines, commit)
+        print('%s scrub control: %s' % ('green' if not rc else 'BROKEN', name))
+        if rc:
+            survived.append('scrub control: ' + name)
+    return survived
+
+
+def release_git_mutations():
+    """The git-backed half of tools/release-check.py: a throwaway repo with a release tag, a sha pin and a local bare
+    `origin`. The baseline must be green; each mutation must go red WITH its own reason."""
+    survived = []
+    g = ['git', '-c', 'init.defaultBranch=main', '-c', 'commit.gpgsign=false', '-c', 'tag.gpgsign=false']
+    env = dict(os.environ, GIT_AUTHOR_NAME='Someone', GIT_AUTHOR_EMAIL='someone@example.com',
+               GIT_COMMITTER_NAME='Someone', GIT_COMMITTER_EMAIL='someone@example.com')
+
+    def sh(d, *cmd):
+        return subprocess.run(g + list(cmd), cwd=d, env=env, check=True, stdout=subprocess.PIPE,
+                              stderr=subprocess.DEVNULL).stdout.decode().strip()
+
+    def set_version(d, v):
+        for mf in ('plugin/.claude-plugin/plugin.json', 'plugin/.codex-plugin/plugin.json'):
+            p = os.path.join(d, mf)
+            doc = json.load(open(p, encoding='utf-8'))
+            doc['version'] = v
+            open(p, 'w', encoding='utf-8').write(json.dumps(doc, indent=2) + '\n')
+
+    def build():
+        """v1.0.0 tagged on its own commit; the pin commit on top pins ref v1.0.0 + that commit's sha."""
+        d = copy_repo()
+        set_version(d, '1.0.0')
+        sh(d, 'init', '-q')
+        sh(d, 'add', '-A')
+        sh(d, 'commit', '-q', '-m', 'base')
+        base = sh(d, 'rev-parse', 'HEAD')
+        sh(d, 'tag', '-a', 'v1.0.0', '-m', 'v1.0.0')
+        subprocess.run([sys.executable, 'tools/release-check.py', '--bump', 'v1.0.0', '--sha', base], cwd=d,
+                       stdout=subprocess.DEVNULL, check=True)
+        sh(d, 'commit', '-q', '-am', 'pin')
+        sh(d, 'clone', '-q', '--bare', d, d + '.git')
+        sh(d, 'remote', 'add', 'origin', d + '.git')
+        return d, base
+
+    def check(d, *args):
+        p = subprocess.run([sys.executable, 'tools/release-check.py'] + list(args), cwd=d,
+                           stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        return p.returncode, p.stdout.decode('utf-8', 'replace')
+
+    def m_branch_shadow(d, base):
+        sh(d, 'push', '-q', 'origin', 'HEAD:refs/heads/v1.0.0')
+
+    def m_other_v_branch(d, base):
+        sh(d, 'push', '-q', 'origin', 'HEAD:refs/heads/v9-anything')
+
+    def m_tag_missing(d, base):
+        sh(d, 'tag', '-d', 'v1.0.0')
+
+    def m_tag_other_version(d, base):
+        set_version(d, '0.9.0')
+        sh(d, 'commit', '-q', '-am', 'other version')
+        sh(d, 'tag', '-f', '-a', 'v1.0.0', '-m', 'moved')
+        set_version(d, '1.0.0')
+        sh(d, 'commit', '-q', '-am', 'back')
+
+    def m_sha_not_ancestor(d, base):
+        sh(d, 'checkout', '-q', '--orphan', 'side')
+        sh(d, 'commit', '-q', '-m', 'unrelated')
+        side = sh(d, 'rev-parse', 'HEAD')
+        sh(d, 'checkout', '-q', '-f', 'main')
+        subprocess.run([sys.executable, 'tools/release-check.py', '--bump', 'v1.0.0', '--sha', side], cwd=d,
+                       stdout=subprocess.DEVNULL, check=True)
+        sh(d, 'commit', '-q', '-am', 'pin elsewhere')
+
+    def m_sha_other_plugin(d, base):
+        # the tag moves to a later commit whose plugin/ differs from the pinned sha
+        open(os.path.join(d, 'plugin/README.md'), 'a').write('\nchanged after the pinned commit\n')
+        sh(d, 'commit', '-q', '-am', 'payload change')
+        sh(d, 'tag', '-f', '-a', 'v1.0.0', '-m', 'moved')
+
+    def m_dirty(d, base):
+        set_version(d, '1.1.0')
+
+    def m_release_exists(d, base):
+        set_version(d, '1.1.0')
+        sh(d, 'commit', '-q', '-am', 'bump')
+        sh(d, 'tag', '-a', 'v1.1.0', '-m', 'v1.1.0')
+
+    def m_release_shadow(d, base):
+        set_version(d, '1.1.0')
+        sh(d, 'commit', '-q', '-am', 'bump')
+        sh(d, 'push', '-q', 'origin', 'HEAD:refs/heads/v1.1.0')
+
+    def m_no_origin(d, base):
+        sh(d, 'remote', 'remove', 'origin')
+
+    def release_ready(d, base):
+        set_version(d, '1.1.0')
+        sh(d, 'commit', '-q', '-am', 'bump')
+
+    d, base = build()
+    rc, out = check(d)
+    rc2 = 1
+    if rc == 0:
+        release_ready(d, base)
+        rc2, out = check(d, '--release', 'v1.1.0')
+    ok = rc == 0 and rc2 == 0
+    print('%s release git baseline (pin and --release v1.1.0 green)%s' % ('green' if ok else 'BROKEN',
+                                                                          '' if ok else ': ' + out.strip()[-300:]))
+    if not ok:
+        survived.append('release git baseline')
+    shutil.rmtree(d)
+    shutil.rmtree(d + '.git')
+
+    for name, fn, args, want in [
+        ('a branch named like the pinned tag on origin', m_branch_shadow, [], 'shadow release tags'),
+        ('any v* branch on origin', m_other_v_branch, [], 'shadow release tags'),
+        ('no origin to list branches from', m_no_origin, [], 'cannot list the branches'),
+        ('the pinned tag does not exist', m_tag_missing, [], 'does not exist here'),
+        ('the pinned tag carries another version', m_tag_other_version, [], 'says version'),
+        ('sha is not on the tag\'s history', m_sha_not_ancestor, [], 'not tag v1.0.0 or an ancestor'),
+        ('plugin/ at the sha differs from the tag', m_sha_other_plugin, [], 'differs from plugin/'),
+        ('--release on a dirty tree', m_dirty, ['--release', 'v1.1.0'], 'not clean'),
+        ('--release of a tag that already exists', m_release_exists, ['--release', 'v1.1.0'], 'already exists'),
+        ('--release while a branch has the tag\'s name', m_release_shadow, ['--release', 'v1.1.0'],
+         'shadow release tags'),
+    ]:
+        d, base = build()
+        fn(d, base)
+        rc, out = check(d, *args)
+        ok = rc != 0 and want in out
+        print('%s release git: %s' % ('RED ' if ok else 'SURVIVED', name))
+        if not ok:
+            survived.append('release git: %s (%s)' % (name, out.strip()[-200:]))
+        shutil.rmtree(d)
+        shutil.rmtree(d + '.git')
     return survived
 
 
