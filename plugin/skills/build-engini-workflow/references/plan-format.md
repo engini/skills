@@ -29,6 +29,9 @@ The server is the source of truth: when this file and the live tool output (`get
 8. **Connection** is `"auto"` (default), `"none"` (or `"0"`), or a numeric connection id from
    `list_builder_connections`. A connection *name/slug* is `INVALID_CONNECTION`.
 9. Created workflows are **always turned off**; nothing in the plan changes that.
+10. **A table automation** (runs when a record of an Engini table is created, updated or deleted) is a plan with a
+    top-level `table` and one of three Tables triggers. Its trigger slugs come from §1i, not from the catalog, and its
+    column references use field names the user gives you (§1i).
 
 ## 1. Shape
 
@@ -77,6 +80,7 @@ The server is the source of truth: when this file and the live tool output (`get
 | `value` / `valueTypes` | `init_variable` only | an object/array variable as a JSON tree, see §1f (`MANUAL_VALUE_NOT_ALLOWED` on any other type) |
 | `model` / `memory` / `tools` | `ai_agent` only | the AI agent's LLM, chat memory and connector-action tools, see §1e (`AI_AGENT_NOT_ALLOWED` on any other type) |
 | `notes` | plan (top level) | canvas sticky notes, see §1d; omit = keep, `[]` = clear |
+| `table` | plan (top level) | the table id of a table automation, with a Tables trigger, see §1i; set at create, never changed (omit on an edit = keep) |
 
 ## 1a. Schedule (any polling trigger)
 
@@ -361,6 +365,70 @@ use, never guess one): give `connection: "none"` and read the schema before use.
   send its failure path back exactly as `get_workflow_plan` returned it, nested or flat. Moving or deleting a failure
   path is a designer action.
 
+## 1i. Table automations (`table`)
+
+A table automation runs when a record of one of the user's Engini tables is created, updated or deleted. It is an
+ordinary plan plus a top-level `table` (the table's id) and a Tables trigger:
+
+```json
+{
+  "name": "Comment on new orders",
+  "table": "<table id>",
+  "trigger": { "key": "start", "tool": "tables.Tableonrecordcreation", "connection": "auto" },
+  "steps": [
+    { "key": "comment", "tool": "tables.WorkSheetAddCommentToRecord", "connection": "auto",
+      "inputs": { "TableId": "<table id>", "RecordId": "{{start.RecordId}}",
+                  "Comment": "New order {{start.Text1}}" } }
+  ]
+}
+```
+
+| Trigger `tool` | Fires when | Later steps read the record as |
+|---|---|---|
+| `tables.Tableonrecordcreation` | a record is added | `{{start.<field name>}}`, `{{start.RecordId}}` |
+| `tables.Tableonrecordupdated` | a record changes | `{{start.newValues.<field name>}}` (after the change) and `{{start.oldValues.<field name>}}` (before); the record id is `{{start.newValues.RecordId}}`. A flat `{{start.<field name>}}` reads empty |
+| `tables.Tableonrecorddeleted` | a record is deleted | `{{start.<field name>}}`, `{{start.RecordId}}` |
+
+(`start` stands for the trigger's key.)
+
+- **These three slugs come from this table, not from the catalog.** The catalog tools cannot show Tables triggers yet:
+  `search_builder_catalog` does not return them and `get_builder_tool_schema` on one is `SLUG_NOT_FOUND`. Write the
+  slug as above; the compile resolves it when the plan has `table`. The trigger takes no inputs.
+- **The table id comes from the user.** No builder tool lists tables yet, so ask: it is the id in the table's
+  address in the Engini app (`.../tables/<table id>`). The compile checks it is one of the user's tables in this
+  workspace and environment (`TABLE_NOT_FOUND` otherwise). Never guess or reuse one.
+- **`table` sets the trigger's table too.** Do not give the trigger a table input; one that differs from `table` is
+  `TABLE_NOT_CHANGEABLE`.
+- **Columns are referenced by their field name** (`Text1`, `Number2`, ...), never by the label the user sees (`sku`,
+  `Customer email`). A label or an unknown name compiles with only an `UNKNOWN_OUTPUT_PATH` warning, saves, and then
+  reads empty on every run: treat that warning as must-fix here. No builder tool lists a table's columns yet, so ask
+  the user for each field name: in the table's **Manage Fields** list, a column's menu shows its **Field Name**. If
+  the user cannot give one, leave that reference out and list it under Warnings for the designer. Never derive a field
+  name from a label.
+- **Connections:** `connection: "auto"` on the Tables trigger and on Tables actions - the Tables app needs no
+  connection of the user's.
+- **Tables actions** (add a comment, update a record, ...) are found by `search_builder_catalog` with `app` `tables`.
+  Prefer the `tables.` slugs; the catalog can also show copies under other app slugs. Their `TableId` is a dropdown
+  whose options cannot be read through the user's connection: set it to the automation's table id and name it in
+  the proposal's Picks list.
+- **Not available:** the button-clicked trigger (`tables.Tableonbuttonclicked`) is `SLUG_NOT_FOUND` - the user builds
+  that one in the designer. With `table`, an ordinary trigger is `SLUG_NOT_FOUND` too; a Tables trigger without
+  `table` is `TABLE_REQUIRED`.
+- **The table is fixed at create.** On an edit leave `table` out (the workflow keeps its table) or send it unchanged.
+  A different table, or a `table` added to an ordinary workflow, is `TABLE_NOT_CHANGEABLE`: create a new workflow
+  instead. `get_workflow_plan` returns `table` and the trigger as a typed step.
+- **Created turned off, turned on only in the Engini app.** The automation shows under the table's **Automations**
+  tab. The user turns it on there or in the designer; Flo's tools cannot, even when the user asks: the
+  workflow tools outside the builder do not see table automations (`get_workflows` does not list them, and enable,
+  run or delete answers `404 NOT_FOUND`). Editing one that is on is `409 WORKFLOW_ACTIVE`, as for any workflow.
+- **To edit one**, `get_workflows` cannot find it by name: ask the user for the workflow id from its designer address
+  (`.../workflows/<id>/edit`), read it with `get_workflow_plan`, and confirm its `name` and `table` with the user
+  before you design anything.
+- A diagnostic message may say "Use an id from GET catalog/tables": that list is not a builder tool yet - ask the
+  user instead. Listing tables and their columns (with the `newValues.` / `oldValues.` paths) arrives with an update
+  of the `engini_workflows` connector; until `engini tools list --application engini_workflows` shows such a tool,
+  follow this section.
+
 ## 2. References
 
 - `{{key.path}}` -> `##<StepNo>.path`. The key must be a step of this plan (`UNKNOWN_REFERENCE`) that runs **before**
@@ -384,6 +452,8 @@ use, never guess one): give `connection: "none"` and read the schema before use.
   is `VARIABLE_NOT_INITIALIZED`. Reading a variable's value elsewhere: `{{total}}` (unverified - compile and check).
 - Functions `@@fn(...)` pass through; references inside them are rewritten. See `guides/expressions.md`.
 - Some fields are passed to the vendor verbatim (NoParse): a `{{...}}` there is `REFERENCE_IN_NOPARSE_FIELD`.
+- A table automation's trigger is read by column **field name**, and the record-updated trigger only under
+  `newValues.` / `oldValues.` (§1i).
 
 ## 3. Platform blocks (confirm fields and option ids with `get_builder_tool_schema` for `block.<type>`)
 
@@ -424,6 +494,7 @@ does not offer it); the user adds it in the designer.
 - `get_workflow_plan` values are unredacted on purpose: never paste them into a log or a file (session-log rules in
   `agent-rules.md`).
 - Diagnostics on steps you did not change are downgraded to warnings when the saved workflow already had them.
+- A table automation reads back with its `table`: leave it out or send it unchanged; it can never change (§1i).
 
 ## 5. Severity and the write gate
 
