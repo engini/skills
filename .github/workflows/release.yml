@@ -1,4 +1,4 @@
-# Release vX.Y.Z of the workflow plugin from this repo. Manual only, from main, pushed by a GitHub App, never a staff
+# Release vX.Y.Z of the skills plugin from this repo. Manual only, from main, pushed by a GitHub App, never a staff
 # token. Two jobs:
 #   gates    no environment, no credential: checks the tag, runs the private term list over the tree and every commit
 #            since the last release tag (fails closed when SCRUB_DENYLIST is absent), runs every gate including the

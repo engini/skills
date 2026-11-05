@@ -259,7 +259,7 @@ def release_check_mutations():
     def src(d, mf):
         p = os.path.join(d, mf)
         doc = json.load(open(p, encoding='utf-8'))
-        return p, doc, [e for e in doc['plugins'] if e['name'] == 'workflow'][0]
+        return p, doc, [e for e in doc['plugins'] if e['name'] == 'skills'][0]
 
     def setter(mf, fn):
         def m(d):

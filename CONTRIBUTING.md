@@ -17,7 +17,7 @@ work on `main` reaches nobody until a release moves the pin.
 | `plugin/.codex/agents/flo.toml`, `plugin/.codex-plugin/plugin.json` | Codex adapter (a pointer, max 40 lines, no `model`) |
 | `plugin/hooks/claude-hooks.json`, `plugin/hooks/deny-never-verbs.py` | the Claude Code guard hook. **Not** `hooks/hooks.json`: that name is both tools' default discovery path and would ship an unprobed Codex hook (Codex gets no hook) |
 | `plugin/README.md`, `plugin/TROUBLESHOOTING.md` | customer docs |
-| `.claude-plugin/marketplace.json`, `.agents/plugins/marketplace.json` | marketplace manifests; each pins `workflow` to `plugin/` of this repo at a release tag (`ref`) and commit (`sha`) |
+| `.claude-plugin/marketplace.json`, `.agents/plugins/marketplace.json` | marketplace manifests; each pins `skills` to `plugin/` of this repo at a release tag (`ref`) and commit (`sha`) |
 | `README.md`, `LICENSE` | the repo landing page and licence |
 | `tools/` | gates, generator, contract snapshot (development only, never installed) |
 | `evals/` | model evals (development only, never installed) |

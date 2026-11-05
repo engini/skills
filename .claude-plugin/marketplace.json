@@ -9,7 +9,7 @@
   },
   "plugins": [
     {
-      "name": "workflow",
+      "name": "skills",
       "source": {
         "source": "git-subdir",
         "url": "https://github.com/engini/skills.git",

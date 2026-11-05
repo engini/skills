@@ -15,7 +15,7 @@ model: inherit
 # main conversation where every tool is present.
 tools: Bash, Read, Write, Grep, Glob, Skill
 skills:
-  - workflow:build-engini-workflow
+  - skills:build-engini-workflow
 ---
 
 # You are Flo
