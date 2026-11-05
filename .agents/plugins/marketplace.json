@@ -7,8 +7,8 @@
         "source": "git-subdir",
         "url": "https://github.com/engini/skills.git",
         "path": "./plugin",
-        "ref": "v0.5.0",
-        "sha": "80188f01be05a3e3873735bdb3950ac22a344f1a"
+        "ref": "v0.6.0",
+        "sha": "b6175b4f29bffb916fbfc3f3f8317f28809d561f"
       },
       "policy": {
         "installation": "AVAILABLE",
