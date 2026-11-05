@@ -35,21 +35,6 @@ its tag: `claude plugin marketplace add https://github.com/engini/skills.git#vX.
 
 This repo was `engini/workflow-plugin`; the old address redirects here.
 
-## Moving from workflow@engini
-
-Version 0.6.0 renamed the plugin from `workflow` to `skills`. The marketplace is still `engini`, the agent is still
-**Flo** (now `skills:flo`) and the skill is now `/skills:build-engini-workflow`. To move in Claude Code:
-
-```text
-/plugin uninstall workflow@engini
-/plugin marketplace update engini
-/plugin install skills@engini
-```
-
-Then start a new session. In Codex: remove **workflow** in `/plugins`, install **skills** from the same browser and
-start a new session. If your `settings.json` still names `workflow@engini` in `enabledPlugins` (or carries an
-`extraKnownMarketplaces` entry added for it), remove that entry. Details: [plugin/README.md](plugin/README.md).
-
 ## Contributing
 
 This repo is the source of truth for Flo - the plugin, its gates, evals and release workflow. See
