@@ -28,7 +28,7 @@ python3 - "$here/cases.json" > "$work/cases.tsv" <<'PY'
 import json, sys
 for c in json.load(open(sys.argv[1]))['cases']:
     if c['pass'] == 1:
-        print(c['id'] + '\t' + ('1' if c.get('inject') else '0') + '\t' + c['prompt'].replace('/workflow:build-engini-workflow ', 'Use the build-engini-workflow skill. ').replace('\n', ' '))
+        print(c['id'] + '\t' + ('1' if c.get('inject') else '0') + '\t' + c['prompt'].replace('/skills:build-engini-workflow ', 'Use the build-engini-workflow skill. ').replace('\n', ' '))
 PY
 fail=0
 while IFS=$'\t' read -r id inject prompt; do

@@ -6,7 +6,7 @@
   python3 tools/release-check.py --bump vX.Y.Z --sha SHA   rewrite both pins to vX.Y.Z + SHA (release workflow only)
 
 The pin:
-- both marketplace manifests point the `workflow` plugin at a `git-subdir` source of THIS repo, path `plugin`, with
+- both marketplace manifests point the `skills` plugin at a `git-subdir` source of THIS repo, path `plugin`, with
   `ref` a release tag vX.Y.Z - never a branch, never a relative `./plugin` (that would serve whatever is on main) -
   and `sha` a full commit id. Both tools install `sha` when it is set (a name can be shadowed by a branch of the same
   name, a commit id cannot). The release commit cannot hold its own id, so `sha` is the gated commit the release
@@ -26,7 +26,7 @@ import subprocess
 import sys
 
 REPO_URL = 'https://github.com/engini/skills.git'
-PLUGIN = 'workflow'
+PLUGIN = 'skills'
 MARKETPLACES = {
     '.claude-plugin/marketplace.json': 'plugin',      # Claude Code: path as in its git-subdir reference
     '.agents/plugins/marketplace.json': './plugin',   # Codex: path as in its git-subdir reference

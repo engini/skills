@@ -1,6 +1,6 @@
 # Engini skills
 
-Engini's agent plugins for **Claude Code** and **Codex**. Today it holds one plugin, **workflow**: **Flo**, an agent
+Engini's agent plugins for **Claude Code** and **Codex**. Today it holds one plugin, **skills**: **Flo**, an agent
 that builds Engini workflows from a plain-language request ("when a deal closes in Salesforce, post to Slack"). Flo
 designs the workflow, dry-runs it against your own Engini account, shows you a proposal, and creates it **only after
 you approve** - always **turned off**.
@@ -14,7 +14,7 @@ the `engini` CLI), how to check the install, the safety settings to paste, and w
 
 ```text
 claude plugin marketplace add engini/skills
-claude plugin install workflow@engini
+claude plugin install skills@engini
 ```
 
 **Codex** (not yet verified on a real Codex install - provisional)
@@ -23,7 +23,7 @@ claude plugin install workflow@engini
 codex plugin marketplace add engini/skills --sparse .agents/plugins
 ```
 
-Then install **workflow** from the `/plugins` browser and start a new session.
+Then install **skills** from the `/plugins` browser and start a new session.
 
 ## Releases
 
@@ -34,6 +34,21 @@ its tag: `claude plugin marketplace add https://github.com/engini/skills.git#vX.
 [Releases](https://github.com/engini/skills/releases) for the notes and the guard script's SHA-256.
 
 This repo was `engini/workflow-plugin`; the old address redirects here.
+
+## Moving from workflow@engini
+
+Version 0.6.0 renamed the plugin from `workflow` to `skills`. The marketplace is still `engini`, the agent is still
+**Flo** (now `skills:flo`) and the skill is now `/skills:build-engini-workflow`. To move in Claude Code:
+
+```text
+/plugin uninstall workflow@engini
+/plugin marketplace update engini
+/plugin install skills@engini
+```
+
+Then start a new session. In Codex: remove **workflow** in `/plugins`, install **skills** from the same browser and
+start a new session. If your `settings.json` still names `workflow@engini` in `enabledPlugins` (or carries an
+`extraKnownMarketplaces` entry added for it), remove that entry. Details: [plugin/README.md](plugin/README.md).
 
 ## Contributing
 

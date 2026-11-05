@@ -25,10 +25,10 @@ nothing your key could not do by hand - which is also the honest limit of every 
 
 ```text
 claude plugin marketplace add engini/skills
-claude plugin install workflow@engini
+claude plugin install skills@engini
 ```
 
-(or `/plugin marketplace add engini/skills` and `/plugin install workflow@engini` inside a session).
+(or `/plugin marketplace add engini/skills` and `/plugin install skills@engini` inside a session).
 
 The marketplace pins Flo to a **release tag**: you install the last tagged release, never unreleased work on `main`.
 To stay on one reviewed release even when you update, add the marketplace pinned to its tag instead:
@@ -45,12 +45,12 @@ codex plugin marketplace add engini/skills --sparse .agents/plugins
 The Codex marketplace pins Flo to the same release tag. To stay on one release, add it pinned:
 `codex plugin marketplace add engini/skills --ref vX.Y.Z --sparse .agents/plugins`.
 
-Then install **workflow** from the `/plugins` browser and start a **new session** - the skill is not found until you do.
+Then install **skills** from the `/plugins` browser and start a **new session** - the skill is not found until you do.
 Codex has no Flo hook (see "What Flo will never do on his own"), so also paste the Codex rules from the safety block below.
 
 ## Check the install - this must fail loudly if something is wrong
 
-**Claude Code.** Run `/plugin details workflow@engini`. It must list **Skills (1)**, **Agents (1)** and **Hooks (1)**.
+**Claude Code.** Run `/plugin details skills@engini`. It must list **Skills (1)**, **Agents (1)** and **Hooks (1)**.
 `Hooks (0)` means the guard is not installed and nothing but your own settings asks you before the four never-verbs.
 
 Then prove the guard actually runs. Ask Claude to run this exact command (it is harmless either way: it makes a
@@ -193,7 +193,7 @@ and tested as open:
 **Scope.** The guard applies to **every** Claude Code session where the plugin is enabled - not only while Flo is
 working. It asks you before *your own* never-verb call (approve it - you meant it) and refuses *your own*
 `engini connections delete` or `engini login` when the agent runs it: run those in your own terminal, or turn the plugin
-off for the session with `/plugin disable workflow@engini` (that removes the guard's other protections too). Everything
+off for the session with `/plugin disable skills@engini` (that removes the guard's other protections too). Everything
 else - your builds, git, other tools, other Engini apps' tools - runs normally.
 
 When the guard speaks, the message starts with `FLO-HOOK-ASK` (a prompt for you, for a **never-verb** you should approve
@@ -312,12 +312,36 @@ writable root or Flo skips them. Not yet verified on a real Codex install.
   the shell as much as through file reads. The guard refuses the literal reads; what actually protects you is a
   scoped, rotatable key plus the `Bash(engini:*)` allow rule - not secrecy from the model.
 
+## Moving from workflow@engini
+
+Version 0.6.0 renamed the plugin from `workflow` to `skills`. The marketplace is still `engini` and the agent is still
+**Flo**; only the plugin's name changed, so the agent is now `skills:flo` and the skill is now
+`/skills:build-engini-workflow` (it still loads on its own when your request matches). An existing `workflow@engini`
+install keeps working on its last release but gets no further updates. To move:
+
+**Claude Code**
+
+```text
+/plugin uninstall workflow@engini
+/plugin marketplace update engini
+/plugin install skills@engini
+```
+
+Then start a **new session** and run the install check above for `skills@engini`. If your `settings.json` (user or
+project) still names `workflow@engini` - an `enabledPlugins` entry, or an `extraKnownMarketplaces` entry added for it -
+remove that entry: it points at a plugin the marketplace no longer serves.
+
+**Codex:** remove the **workflow** plugin in `/plugins`, install **skills** from the same browser, and start a new
+session.
+
+The safety block above does not change: it names the `engini` CLI's commands, not the plugin.
+
 ## Moving from flo@engini-flo
 
-Version 0.3.0 renamed the install: the marketplace is `engini` and the plugin is `workflow` (the agent is still
-**Flo**; its skill is now `/workflow:build-engini-workflow`). The repo is now `engini/skills`; the old
-`engini/flo-plugin` and `engini/workflow-plugin` addresses redirect to it, so an existing `flo@engini-flo` install
-keeps working until you move. To move:
+Version 0.3.0 renamed the install: the marketplace became `engini` and the plugin `workflow`; version 0.6.0 renamed the
+plugin again, to `skills` (the agent is still **Flo**; its skill is now `/skills:build-engini-workflow`). The repo is
+now `engini/skills`; the old `engini/flo-plugin` and `engini/workflow-plugin` addresses redirect to it, so an existing
+`flo@engini-flo` install keeps working until you move. To move:
 
 **Claude Code**
 
@@ -325,19 +349,19 @@ keeps working until you move. To move:
 /plugin uninstall flo@engini-flo
 /plugin marketplace remove engini-flo
 /plugin marketplace add engini/skills
-/plugin install workflow@engini
+/plugin install skills@engini
 ```
 
 **Codex:** remove the old **flo** plugin and the `engini-flo` marketplace in `/plugins`, then add
-`engini/skills --sparse .agents/plugins` as shown under Install and install **workflow**
+`engini/skills --sparse .agents/plugins` as shown under Install and install **skills**
 from the browser. Start a new session afterwards.
 
 ## Updating and uninstalling
 
-- **Update:** `/plugin marketplace update engini`, then reinstall (`/plugin install workflow@engini`); in Codex,
+- **Update:** `/plugin marketplace update engini`, then reinstall (`/plugin install skills@engini`); in Codex,
   upgrade from `/plugins`. Neither tool updates Flo on its own, so a fix to the never list or the guard reaches you
   only when you update. Release notes flag every such change and give the guard script's SHA-256.
-- **Uninstall:** `/plugin uninstall workflow@engini` (Claude Code) or remove it in `/plugins` (Codex). Remove the
+- **Uninstall:** `/plugin uninstall skills@engini` (Claude Code) or remove it in `/plugins` (Codex). Remove the
   safety block from your settings if you no longer want it.
 
 Trouble? See TROUBLESHOOTING.md.
