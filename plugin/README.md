@@ -15,7 +15,7 @@ nothing your key could not do by hand - which is also the honest limit of every 
 | The Engini CLI: `npm i -g @engini/cli` | **0.29.0 or later** | every Flo call goes through it |
 | Claude Code | **2.1.316 or later** (the version this release was tested on) | |
 | Python | **3.8 or later**, as `python3` or `python` | Claude Code only: runs Flo's guard hook (below) |
-| Codex | not yet verified on a real Codex install | see "Codex" below |
+| Codex | supported | see "Codex" below |
 
 `jq` is not needed.
 
@@ -36,7 +36,7 @@ To stay on one reviewed release even when you update, add the marketplace pinned
 Claude Code does not update plugins on its own; neither tool signs or verifies a plugin, so the pinned form is the
 one to use if you review what you install.
 
-**Codex** (not yet verified on a real Codex install - treat these lines as provisional)
+**Codex**
 
 ```text
 codex plugin marketplace add engini/skills --sparse .agents/plugins
@@ -84,8 +84,8 @@ hides the key you type only when its input is a terminal, and in Claude Code's `
 is false there), so a key typed that way would show. Flo's guard refuses to let the agent run these commands, because
 they put a raw key in the agent's hands; when Flo needs one done he stops and gives you the command to run in your own
 terminal, never asks you to paste a key into the chat, and never puts a key in a command. `!` is fine for a check with
-no secret in it, such as `! engini whoami`. Whether Codex's shell gives the CLI a terminal is not verified - use your
-own terminal there too.
+no secret in it, such as `! engini whoami`. In Codex, use your own terminal
+too.
 
 ## First run
 
@@ -299,7 +299,7 @@ under `/System/Volumes/Data`):
 **Codex sandbox.** Codex runs commands without network by default, so every `engini` call fails. Allow network for
 commands (`[sandbox_workspace_write]` `network_access = true` in your Codex config) or approve the commands outside
 the sandbox. Flo's optional session log and lessons live in `~/.engini/flo/`, outside the workspace: add it as a
-writable root or Flo skips them. Not yet verified on a real Codex install.
+writable root or Flo skips them.
 
 ## Things to know
 
