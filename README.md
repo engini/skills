@@ -17,7 +17,7 @@ claude plugin marketplace add engini/skills
 claude plugin install skills@engini
 ```
 
-**Codex** (not yet verified on a real Codex install - provisional)
+**Codex**
 
 ```text
 codex plugin marketplace add engini/skills --sparse .agents/plugins

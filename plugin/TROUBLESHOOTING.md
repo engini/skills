@@ -52,7 +52,7 @@ Flo stops and tells you when one of these comes back. What **you** do:
 | Symptom | Cause | What you do |
 |---|---|---|
 | The skill is not found right after installing | Both tools load plugins at session start | Start a new session |
-| The Flo agent does not load in Codex | Codex may not install a plugin's agent definition (not yet verified) | Use the skill directly ("build an Engini workflow ...") |
+| The Flo agent does not load in Codex | Codex may not install a plugin's agent definition | Use the skill directly ("build an Engini workflow ...") |
 | `/plugin install workflow@engini` fails, or `/workflow:build-engini-workflow` is not found | Version 0.6.0 renamed the plugin to `skills` | Move to `skills@engini` (see "Moving from workflow@engini" below) |
 | Both `workflow` and `skills` show up, or Claude Code warns about a missing `workflow@engini` | The old install, or a leftover `settings.json` entry for it, is still there | `/plugin uninstall workflow@engini`; remove any `workflow@engini` entry under `enabledPlugins` (and an `extraKnownMarketplaces` entry added for it) in your `settings.json`; start a new session |
 | `/plugin details skills@engini` shows `Hooks (0)` | The guard is not installed | Reinstall from `engini/skills`; check the plugin is enabled |
