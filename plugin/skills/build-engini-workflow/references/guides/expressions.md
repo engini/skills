@@ -61,6 +61,8 @@ Inventory by purpose:
 | **Date / time** | `utcnow` `localtimenow` `date` `datetime` `year` `month` `day` `hour` `minutes` `seconds` `dayofweek` `datediff` `addseconds` `addminutes` `addhours` `adddays` `addweeks` `addmonths` `addyears` `startofmonth` `endofmonth` `formatdatetime` `stringtodatetime` `converttolocaltime` `converttimezone` `converttounixdatetime` |
 | **Array / object** | `createarray` `appendtoarray` `arraylength` `getarrayelement` `first` `last` `distinct` `join` `getproperty` `tojsonstring` `tostring` |
 | **Encoding / hash** | `base64tostring` `stringtobase64` `urlencode` `urldecode` `encryptmd5` `encryptsha1` `encryptsha256` `encryptsha512` `tobinary` `readjwt` `guid` `randomstring` `getmimetype` |
+| **Regular expressions** | `regexreplace` `regexmatch` `regexmatchall` |
+| **Table lookup** | `lookuptable` |
 | **Workflow context** | `workflow` `workflowlastrundate` `getworkflowhistoryid` `activitystatus` `errors` `lasterror` `lasterrormessage` `getuser` `filelength` |
 
 Known arities (a wrong argument count fails at run time, not at compile):
@@ -74,6 +76,10 @@ Known arities (a wrong argument count fails at run time, not at compile):
 | `@@switch(<expr>, <case>, <result>[, ...][, <default>])` | 3 or more; pairs after the expression, and an **even** total means the last argument is the default |
 | `@@concat(a, b, ...)` | 1 or more |
 | `@@getproperty(<object>, <name>)` | 2, and arg 1 must resolve to an object |
+| `@@regexreplace(<text>, <pattern>, <replacement>[, <flags>])` | 3 or 4; replaces **every** match; flags `i` `m` `s`, plus `1` = first match only; `$1` / `${name}` in the replacement |
+| `@@regexmatch(<text>, <pattern>[, <flags>][, <group>])` | 2 to 4; first match, or group 1 when the pattern has a group (`group` = number or name, `0` = whole match); `""` when nothing matches |
+| `@@regexmatchall(<text>, <pattern>[, <flags>][, <group>])` | 2 to 4; returns an **array** (same group rule); errors above 1,000 matches |
+| `@@lookuptable("<table>", "<value column>", "<key column>": <value>[, ...])` | 4 or more, even count; colon pairs are key column : value; returns the value column of the first row matching every key |
 
 A function not in the arity table: use it only in the shape its name makes unambiguous, and tell the user to check
 the step in the designer.
