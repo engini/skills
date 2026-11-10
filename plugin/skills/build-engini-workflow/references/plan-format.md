@@ -66,7 +66,8 @@ The server is the source of truth: when this file and the live tool output (`get
 | `tool` | trigger, `action` | catalog slug (`SLUG_NOT_FOUND` when unknown/hidden) |
 | `connection` | trigger, `action` | `auto` / `none` / numeric id |
 | `inputs` | any typed step | field name -> text. Names come from the tool schema (`UNKNOWN_INPUT` otherwise) |
-| `condition` | `if`, `do_while` | `{left, op, right}`; `op` ∈ `eq ne gt gte lt lte contains empty notempty`. Required on both |
+| `condition` | `if`, `do_while`, the trigger | `{left, op, right}`; `op` ∈ `eq ne gt gte lt lte contains empty notempty`. Required on `if`/`do_while`; on the trigger it is the fire gate, see §1j (`{"op":"none"}` clears it) |
+| `listenColumns` | the trigger | the columns whose changes fire it, see §1j; omit = keep, `[]` = clear |
 | `then` / `else` | `if` only | step lists (`MISPLACED_BRANCH` on any other type) |
 | `items` | `foreach` only | the list to loop over - must be a single `{{key.path}}` reference |
 | `do` | `foreach`, `do_while`, `scope` | step list (required, non-empty, on a `do_while`) |
@@ -428,6 +429,41 @@ ordinary plan plus a top-level `table` (the table's id) and a Tables trigger:
   user instead. Listing tables and their columns (with the `newValues.` / `oldValues.` paths) arrives with an update
   of the `engini_workflows` connector; until `engini tools list --application engini_workflows` shows such a tool,
   follow this section.
+
+## 1j. Trigger listen columns and condition (`listenColumns`, trigger `condition`)
+
+A trigger has two independent gates, and a plan can set either, both or neither:
+
+```json
+"trigger": {"key": "start", "tool": "tables.Tableonrecordupdated",
+  "listenColumns": ["newValues.Status", "newValues.Amount"],
+  "condition": {"left": "{{start.newValues.Amount}}", "op": "gt", "right": "100"}}
+```
+
+- **Feature-detect first:** `get_builder_tool_schema` for the trigger (kind `trigger`) carries `triggerGates`:
+  `{supportsListenColumns, supportsCondition}`. No `triggerGates` = an older server, which **silently drops both
+  members** - don't send them; tell the user to set them in the designer. A `false` flag = that member is an error
+  on this trigger.
+- **`listenColumns`** - the designer's "columns to listen to": only an event that changes one of them fires the
+  trigger, and each column is one subscription at the vendor, created when the workflow is turned on. Names are
+  `^[A-Za-z0-9_.-]{1,128}$`, at most 50 (`INVALID_LISTEN_COLUMN`); two that make one subscription are
+  `DUPLICATE_LISTEN_COLUMN`. On the Tables "record updated" trigger a name must be one of its output paths,
+  `newValues.<field name>` (or `oldValues.`): a bare `<field name>` would listen to every update, so it is refused;
+  `newValues.X` + `oldValues.X` is one column (`DUPLICATE_LISTEN_COLUMN`). Polling triggers, actions and an `opaque`
+  trigger: `LISTEN_COLUMNS_NOT_ALLOWED`.
+- **Trigger `condition`** - the fire gate, checked after the event arrives (a miss ends the run as "fell by
+  condition"). `left` must be **one reference to the trigger's own output** (`{{start.newValues.Amount}}`); a literal,
+  text around it, or another step is `TRIGGER_CONDITION_INVALID`. The trigger runs before every other step, so
+  `right` may be a literal or a trigger reference, never a later step. Same operators as an `if`; markup on either
+  side is refused. A polling trigger, an `opaque` trigger, or a trigger whose designer shows no condition editor
+  (`supportsCondition: false`): `TRIGGER_CONDITION_NOT_ALLOWED`.
+- **Edit = keep on omit.** Leaving either member out keeps what is stored (like `schedule`, unlike `filters`). To
+  remove them: `"listenColumns": []` and `"condition": {"op": "none"}` (`none` takes no `left`/`right`; it is not an
+  operator and is refused on an `if`). Clearing a condition works even where writing one is not allowed, so a gate the
+  designer no longer shows can still be removed.
+- `get_workflow_plan` returns both on a trigger that can take them. A trigger holding a gate the plan cannot say back
+  (a second condition row, a column the compiler would refuse, a flag switched off since the save) reads back
+  `opaque` - keep it opaque, or rebuild the trigger under its tool.
 
 ## 2. References
 
