@@ -294,12 +294,12 @@ use, never guess one): give `connection: "none"` and read the schema before use.
 
 ```json
 {"key": "big", "tool": "builtin_tools.Sort & Filter", "connection": "none",
- "inputs": {"data": "{{get.records}}"},
+ "inputs": {"data": "{{get}}"},
  "filters": [{"field": "Status", "operator": "eq", "value": "open"}],
  "sorts": [{"field": "Amount", "direction": "desc"}], "top": 5, "offset": 0}
 {"key": "map", "tool": "builtin_tools.MapArray", "connection": "none",
- "inputs": {"data": "{{get.records}}"},
- "subItems": {"properties": {"Total": "{{get.records.Amount}}", "Customer": "{{get.records.Name}}"}}}
+ "inputs": {"data": "{{get}}"},
+ "subItems": {"properties": {"Total": "{{get.Amount}}", "Customer": "{{get.Name}}"}}}
 {"key": "pj", "tool": "builtin_tools.Parse JSON", "connection": "none",
  "inputs": {"content": "{{hook.body}}"},
  "sample": "{\"order\": {\"id\": \"A-1\", \"total\": 10.5, \"lines\": [{\"sku\": \"X\", \"qty\": 1}]}}"}
@@ -307,19 +307,19 @@ use, never guess one): give `connection: "none"` and read the schema before use.
 
 - **Sort & Filter** keeps the records of `inputs.data` that match `filters` (§1b), in `sorts` order, at most `top`,
   after skipping `offset` (0 or more). `advancedFilter: true` makes each filter's `field` an expression over the
-  current record instead of a field name: the `data` reference plus the field (data `{{get.records}}`, field
-  `{{get.records.Amount}}`); a field that does not start with the `data` reference reads the whole step's output, the
+  current record instead of a field name: the `data` reference plus the field (data `{{get}}`, field
+  `{{get.Amount}}`); a field that does not start with the `data` reference reads the whole step's output, the
   same for every record (`ADVANCED_FILTER_OUTSIDE_DATA`). `advancedFilter` and `offset` are Sort & Filter's only - any other
   list tool refuses them. The record fields are not known to the builder, so `filters` get one `UNVERIFIED_INPUT`
   and `{{big.<field>}}` is not checked. **A plan-built Sort & Filter compares values as text** (`"100" > "99"` is
   false): numeric and date filters and sorts may not do what they say - tell the user, and have them pick the data
   object on the step in the designer when the comparison must be numeric or by date. A designer-made Sort & Filter
   keeps its typed object when the plan re-points `data` at another step as a whole (`{{s2}}`); any other `data` (a
-  path such as `{{s2.records}}`, an expression) compares as text from then on (`SORT_FILTER_UNTYPED`).
+  path such as `{{s2.Lines}}`, an expression) compares as text from then on (`SORT_FILTER_UNTYPED`).
 - **Map Array** turns each element of `inputs.data` into a row of new columns. Its mapping is the hidden
   `properties` table in `subItems`: **one row**, output column name -> value, each value evaluated once per element
   (references stay references; they are not refused as verbatim text here). A field of the current element is the
-  `data` reference plus the field (`{{get.records.Amount}}`); `{{map.item.x}}` is not supported (`.item` is foreach
+  `data` reference plus the field (`{{get.Amount}}`); `{{map.item.x}}` is not supported (`.item` is foreach
   only). Its values get every reference check (`FORWARD_REFERENCE` and the rest). Column names lose their spaces
   (`"Total Amount"` is stored as `TotalAmount`, warning `MAP_ARRAY_KEY_NORMALIZED`): write them without spaces. Two
   names that collide after that are `INVALID_SUBITEM_FIELD`. Later steps read `{{map.<Column>}}` (a list).
