@@ -164,7 +164,7 @@ Compiler checks:
 | `PARSE_JSON_ONLY_MEMBER` | error | `sample`/`mapDictionary` only on the built-in Parse JSON tool; raised on any other tool step (on a block they are ignored) |
 | `PARSE_JSON_NO_DICTIONARY` | warning | `mapDictionary` is on but the sample has no object whose keys are numbers (ids): the step outputs the raw text or fails. Turn it off, or fix the sample |
 | `ADVANCED_FILTER_OUTSIDE_DATA` | warning | An advanced filter's `field` does not start with the step's `data` reference, so it reads the whole output, the same for every record: write `{{<data ref>.<field>}}` |
-| `SORT_FILTER_UNTYPED` | warning | A designer Sort & Filter's `data` is not another step as a whole (a path such as `{{s2.records}}`, an expression), so its filters and sorts compare as text: read the whole step (`{{s2}}`) or tell the user |
+| `SORT_FILTER_UNTYPED` | warning | A designer Sort & Filter's `data` is not another step as a whole (a path such as `{{s2.Lines}}`, an expression), so its filters and sorts compare as text: read the whole step (`{{s2}}`) or tell the user |
 | `AI_AGENT_NOT_ALLOWED` | error | `model` / `memory` / `tools` only on an `ai_agent`; an `ai_agent` takes no `tool`, `condition` or `items` (`plan-format.md` §1e) |
 | `AI_MODEL_REQUIRED` | error | A new `ai_agent` needs `model` `{provider, connection, inputs}` |
 | `AI_MODEL_CONNECTION_REQUIRED` | error | Model `connection` is `none`/0, or `auto` finds none: give a connection id of the provider |
