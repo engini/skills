@@ -75,7 +75,7 @@ a known issue, see `expressions.md` Functions.
   "steps": [
     { "key": "items", "tool": "<monday slug>.Get Items", "connection": "<monday connection id>",
       "inputs": { "BOARD_ID": "<board option id>" } },
-    { "key": "each", "type": "foreach", "items": "{{items.<list field from the output schema>}}",
+    { "key": "each", "type": "foreach", "items": "{{items}}",
       "do": [
         { "key": "note", "tool": "<monday slug>.Create Item Update", "connection": "<monday connection id>",
           "inputs": { "ITEMID": "{{each.item.<id field>}}", "BODY": "Checked by Flo: {{each.item.<name field>}}" } }
@@ -84,7 +84,9 @@ a known issue, see `expressions.md` Functions.
 }
 ```
 
-`Get Items`' input names are not in this file on purpose: read them from its schema.
+`Get Items`' input names are not in this file on purpose: read them from its schema. Its `output.type` is `array`: the
+list is the step itself, so `items` is `{{items}}` and each item's fields are read as `{{each.item.<field>}}` inside the
+loop only. When a step's output is an object that holds a list, `items` is `{{<key>.<list field>}}` instead.
 
 ## R5. Count inside a loop - unverified - compile pending
 
@@ -95,7 +97,7 @@ a known issue, see `expressions.md` Functions.
   "steps": [
     { "key": "total", "type": "init_variable",
       "inputs": { "NAME": "total", "TYPE": "<VARTYPE option id, e.g. integer>", "VALUE": "0" } },
-    { "key": "each", "type": "foreach", "items": "{{start.<list field>}}",
+    { "key": "each", "type": "foreach", "items": "{{start}}",
       "do": [
         { "key": "add", "type": "set_variable",
           "inputs": { "VARIABLE": "total", "VALUE": "@@add({{total}}, 1)" } }
