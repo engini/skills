@@ -77,6 +77,11 @@ Facts that keep coming back:
   tell the user to check its inputs in the designer.
 - `search_builder_catalog`'s text argument is `q`.
 - A workflow built before a builder fix shipped keeps the old stored shape: re-create or re-save it after the fix.
+- **A step whose schema `output.type` is `array` returns a list** (a list action, or a trigger such as Gmail "Check
+  for new emails"): its fields are one item's. Put the steps that handle one item inside a `foreach` with
+  `"items": "{{<that step's key>}}"` and read `{{<loop key>.item.<field>}}` there; never read `{{<step key>.<field>}}`
+  outside the loop. Only `top: 1` makes it one object (`plan-format.md` §1b). The compile reports
+  `LIST_OUTPUT_NEEDS_LOOP` once the builder check ships; until then check `output.type` yourself.
 - Blocks and built-ins a plan can build (`plan-format.md` §1g, §1h, §3): `switch`, `do_while`, `scope`, `onFailure`,
   and the Sort & Filter, Map Array and Parse JSON tools. Query Array is not buildable: leave it for the designer.
 - Table automations (`plan-format.md` §1i): the user gives the table id and the column field names; never guess
