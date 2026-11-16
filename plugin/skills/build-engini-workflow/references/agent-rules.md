@@ -108,7 +108,7 @@ The six runtime caveats the builder cannot fix - say each one in the proposal wh
 
 ```
 Target: <account> / workspace <workspaceId> / environment <environmentId>   Connection: <id>
-Name: <workflow name>      Folder: <name> (<id>) or none
+Name: <workflow name> [(suggested)]      Folder: <name> (<id>) or none
 
 | key | app | action | connection | inputs that matter |
 |-----|-----|--------|------------|--------------------|
@@ -124,7 +124,8 @@ Warnings:
 - <table automation: turn it on in the table's Automations tab; column references left for the designer>
 
 Fingerprint: <8 hex>
-Approve to create in <account> / <workspace> / <environment>? Reply with the fingerprint.
+Approve to create <name> in <account> / <workspace> / <environment>? Reply with the fingerprint, or give the
+workflow a different name.
 ```
 
 For an edit, show the diff (steps added / changed / removed, inputs changed) instead of the full table, with the
