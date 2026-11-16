@@ -109,6 +109,9 @@ engini_workflows_rerun_execution
 
 - [ ] Split the request into trigger + steps. Anything ambiguous (which board, which channel, which condition) -> ask
       now, in one batch. Never guess the user's values.
+- [ ] Workflow name (new workflow only): use the user's if they gave one. Otherwise draft a short one from the
+      trigger and the main action (e.g. `New Monday lead -> email sales`, max 64 chars) - the proposal marks it
+      *suggested* and asks the user to keep or change it (§4).
 - [ ] `search_builder_catalog` per step (`kind`: `trigger` | `action` | `block`, `app` when known). Pick the slug;
       never invent one. The catalog can hold duplicate, draft or test copies of an app, each with its own
       connections: prefer the plain app slug (`gmail`, `outlook`, ...), confirm it has connections via
@@ -144,7 +147,7 @@ engini_workflows_rerun_execution
 
 Show the proposal table from `agent-rules.md`, then wait - no write before approval:
 - **Target:** account, and the `workspaceId` / `environmentId` the last compile returned, the connection id, the
-  workflow name, the folder (name + id) if any.
+  workflow name, the folder (name + id) if any. A name the user did not give is marked `(suggested)`.
 - A table: `key | app | action | connection | inputs that matter` (references and field names; no secrets).
 - **Picks:** one line per list field - `<key>.<field> = <option label> (id)`, or `<key>.<field> = not readable:
   <reason> - pick in designer`. A list field missing from this list is a bug in the proposal.
@@ -163,15 +166,19 @@ Show the proposal table from `agent-rules.md`, then wait - no write before appro
 
   (`sha256sum` where `shasum` is missing.) It binds the approval to this target, connection, folder, workflow and the
   whole plan - change any input and it changes. It is not a security control.
-- Last line: "Approve to create in <account> / <workspace> / <environment>? Reply with the fingerprint <xxxxxxxx>."
+- Last line: "Approve to create <name> in <account> / <workspace> / <environment>? Reply with the fingerprint
+  <xxxxxxxx>, or give the workflow a different name." Never skip the name part for a new workflow, even when the
+  name is the user's own.
+- **A different name** -> set the plan's `name`, recompute the fingerprint and show the new `Name:` line and
+  fingerprint, then wait again. The name is in the header line and the plan, so the old fingerprint no longer holds.
 
 ## 5. Act (after approval only)
 
 - [ ] The approval must be the user's own message and quote the fingerprint. Recompute the fingerprint from what you
       are about to send; different -> do not write, propose again.
 - [ ] If the proposal came from the `flo` agent: write the plan JSON from its report as-is, with the connection id
-      from its report - never re-design or re-compile it from scratch. Recompute the fingerprint from that header line
-      and that plan first; different -> do not write, propose again.
+      from its report - never re-design or re-compile it from scratch (only the `name` may change, per §4).
+      Recompute the fingerprint from that header line and that plan first; different -> do not write, propose again.
 - [ ] Use the exact connection id the proposal was compiled with. Print the target scope (rule 5).
 - [ ] `create_workflow_from_plan` `{"plan": <the approved plan>, "folderId": <id, only if a folder was chosen>}`.
       Created **turned off**.
