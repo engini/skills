@@ -33,6 +33,13 @@ def hook_block(r):
         'KEY_ENV = %r' % ('(?:' + '|'.join(r['key_env_vars']) + ')'),
         'KEY_PATH = %r' % (tuple(r['key_path_patterns']),),
         'SELF_PROTECT = %r' % (tuple(r['self_protect_patterns']),),
+        'CLAUDE_FOLDER_READ = %r' % r['claude_folder_read'],
+        'SETTINGS_PATH = %r' % r['settings_path_pattern'],
+        'SETTINGS_SHELL_READ = %r' % r['settings_shell_read'],
+        'SETTINGS_REFUSE_KEYS = %r' % (tuple(r['settings_refuse_keys']),),
+        'SETTINGS_REFUSE_ENV = %r' % r['settings_refuse_env'],
+        'SETTINGS_COMMAND_KEYS = %r' % (tuple(r['settings_command_keys']),),
+        'ASK_MODES = frozenset(%r)' % sorted(r['settings_ask_modes']),
     ]
     return '\n'.join(lines) + '\n'
 
