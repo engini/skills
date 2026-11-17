@@ -321,7 +321,8 @@ def fs_rows(h):
     for f in ('.claude/settings.json', '.config/engini/config.toml'):
         open(os.path.join(home, f), 'w').close()
     for f, body in (('proj/.claude/settings.json', SETTINGS_BODY), ('proj/.claude/settings.local.json', '{"disableAll": true}\n'),
-                    ('proj/.claude/settings.big.json', '{"x": "' + 'a' * (2 * 1024 * 1024) + '"}')):
+                    ('proj/.claude/settings.big.json', '{"x": "' + 'a' * (2 * 1024 * 1024) + '"}'),
+                    ('proj/.claude/settings.nan.json', '{"enabledPlugins": {"skills@engini": false}, "q": NaN}')):
         with open(os.path.join(home, f), 'w') as fh:
             fh.write(body)
     proj = os.path.join(home, 'proj')
@@ -410,6 +411,7 @@ def fs_rows(h):
         ('ask', 'adds a proxyAuthHelper command', W(J(proxyAuthHelper='x')), 'cmd'),
         ('deny', 'a result with NaN is not valid JSON for Claude Code', W(J()[:-1] + ', "q": NaN}'), 'unchecked'),
         ('deny', 'a result with Infinity is not valid JSON for Claude Code', W(J()[:-1] + ', "q": Infinity}'), 'unchecked'),
+        ('deny', 'an edit that removes NaN from a file already holding NaN (before is unreadable)', E(', "q": NaN', '', path='/.claude/settings.nan.json'), 'off'),
         ('ask', 'enables project MCP servers', W(J(enableAllProjectMcpServers=True)), 'cmd'),
         ('deny', 'the result is not JSON', E('"permissions"', 'permissions'), 'unchecked'),
         ('deny', 'the result is not an object', W('[]'), 'unchecked'),

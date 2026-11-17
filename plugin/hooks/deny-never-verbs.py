@@ -547,7 +547,7 @@ def _settings_write(tool, ti, reals, mode):
     if not isinstance(after, dict) or not isinstance(after.get('env', {}), dict):
         return R_SETTINGS_UNCHECKED
     try:
-        before = json.loads(before_text) if before_text.strip() else {}
+        before = json.loads(before_text, parse_constant=_reject_constant) if before_text.strip() else {}
     except ValueError:
         before = {}
     before = before if isinstance(before, dict) else {}   # unreadable before = every key in the result is new
