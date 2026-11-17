@@ -37,11 +37,37 @@
   "self_protect_patterns": [
     "deny-never-verbs",
     "hooks[\\\\/][A-Za-z0-9_-]*hooks\\.json",
-    "(?<![A-Za-z0-9_-])\\.claude[\\\\/]+(?:plugins|settings)",
+    "(?<![A-Za-z0-9_-])\\.claude[\\\\/]+plugins",
     "(?<![A-Za-z0-9_-])\\.codex[\\\\/]",
-    "(?<![A-Za-z0-9_-])\\.(?:claude|codex)[\\\\/]*(?=[\\s;&|)'\"]|\\Z)",
+    "(?<![A-Za-z0-9_-])\\.codex[\\\\/]*(?=[\\s;&|)'\"]|\\Z)",
     "(?<![A-Za-z0-9_-])\\.claude[\\\\/]+[^\\s\\\\/]*[*?\\[{$`]",
     "(?<![A-Za-z0-9_-])\\.(?:claude|codex)[\\\\/](?:[^\\s\\\\/;&|<>]*[\\\\/])*\\.\\.?(?=[\\\\/\\s;&|)'\"<>`]|\\Z)",
-    "(?<![A-Za-z0-9_-])(?:cd|pushd|chdir|Set-Location|Push-Location|sl)[ \\t(]+[^;&|\\n]*\\.(?:claude|codex)[\\\\/]"
+    "\\A(?!(?![\\s\\S]*?(?:settings|plugins|disableAllHooks|enabledPlugins|\\.\\.|--pre\\b|--ou|--hostname-bin|[A-Za-z0-9]~[0-9]))(?:[ \\t]*(?:ls|du|stat|file|wc|cat|head|tail|grep|rg|mkdir|pwd|echo|test|dir|gci|Get-ChildItem|git[ \\t]+(?:add|status|diff|log|show|ls-files|blame|commit))(?:[ \\t]+[^\\s;&|<>$`(){}*?\\[\\]\\\\#]+)*[ \\t]*|[ \\t]*cd(?:[ \\t]+[^\\s;&|<>$`(){}*?\\[\\]\\\\#]+)?[ \\t]*)(?:(?:&&|\\|\\||[;|\\n])(?:[ \\t]*(?:ls|du|stat|file|wc|cat|head|tail|grep|rg|mkdir|pwd|echo|test|dir|gci|Get-ChildItem|git[ \\t]+(?:add|status|diff|log|show|ls-files|blame|commit))(?:[ \\t]+[^\\s;&|<>$`(){}*?\\[\\]\\\\#]+)*[ \\t]*|[ \\t]*cd(?:[ \\t]+[^\\s;&|<>$`(){}*?\\[\\]\\\\#]+)?[ \\t]*))*\\Z)(?=[\\s\\S]*?(?:(?<![A-Za-z0-9_-])\\.claude[\\\\/]*(?=[\\s;&|)\\'\"]|\\Z)|(?<![A-Za-z0-9_-])(?:cd|pushd|chdir|Set-Location|Push-Location|sl)[ \\t(]+[^;&|\\n]*\\.claude[\\\\/]))"
+  ],
+  "settings_path_pattern": "(?<![A-Za-z0-9_-])\\.claude[\\\\/]+settings",
+  "claude_folder_read": "\\A(?![\\s\\S]*?(?:settings|plugins|disableAllHooks|enabledPlugins|\\.\\.|--pre\\b|--ou|--hostname-bin|[A-Za-z0-9]~[0-9]))(?:[ \\t]*(?:ls|du|stat|file|wc|cat|head|tail|grep|rg|mkdir|pwd|echo|test|dir|gci|Get-ChildItem|git[ \\t]+(?:add|status|diff|log|show|ls-files|blame|commit))(?:[ \\t]+[^\\s;&|<>$`(){}*?\\[\\]\\\\#]+)*[ \\t]*|[ \\t]*cd(?:[ \\t]+[^\\s;&|<>$`(){}*?\\[\\]\\\\#]+)?[ \\t]*)(?:(?:&&|\\|\\||[;|\\n])(?:[ \\t]*(?:ls|du|stat|file|wc|cat|head|tail|grep|rg|mkdir|pwd|echo|test|dir|gci|Get-ChildItem|git[ \\t]+(?:add|status|diff|log|show|ls-files|blame|commit))(?:[ \\t]+[^\\s;&|<>$`(){}*?\\[\\]\\\\#]+)*[ \\t]*|[ \\t]*cd(?:[ \\t]+[^\\s;&|<>$`(){}*?\\[\\]\\\\#]+)?[ \\t]*))*\\Z",
+  "settings_shell_read": "\\A[ \\t]*(?:cat|grep|jq|git[ \\t]+(?:add|diff|log))(?:[ \\t]+(?:~/)?(?:[A-Za-z0-9_@+,.:/=-]|'[^'\\n]*')+)*[ \\t]*(?:(?:&&|\\|\\||[;|\\n])[ \\t]*(?:cat|grep|jq|git[ \\t]+(?:add|diff|log))(?:[ \\t]+(?:~/)?(?:[A-Za-z0-9_@+,.:/=-]|'[^'\\n]*')+)*[ \\t]*)*\\Z",
+  "settings_refuse_keys": [
+    "disableAllHooks",
+    "enabledPlugins",
+    "extraKnownMarketplaces"
+  ],
+  "settings_refuse_env": "\\A(?:PATH|PYTHON\\w*|HOME|USERPROFILE|CLAUDE_CONFIG_DIR|BASH_ENV|ENV|ZDOTDIR|SHELL|NODE_OPTIONS|CLAUDE_CODE_\\w+|LD_\\w+|DYLD_\\w+)\\Z",
+  "settings_command_keys": [
+    "hooks",
+    "statusLine",
+    "apiKeyHelper",
+    "awsAuthRefresh",
+    "awsCredentialExport",
+    "otelHeadersHelper",
+    "fileSuggestion",
+    "enableAllProjectMcpServers",
+    "enabledMcpjsonServers"
+  ],
+  "settings_ask_modes": [
+    "default",
+    "acceptEdits",
+    "plan",
+    "auto"
   ]
 }

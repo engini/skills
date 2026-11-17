@@ -136,18 +136,27 @@ Four layers stand between them and your account. Only the last one is a boundary
    and any `--api-key` when the agent runs them, and tells the agent to hand you the command to run in your own
    terminal; it refuses reading the CLI's stored login (below) or an `ENGINI_API_KEY` / `ENGINI_API_TOKEN` /
    `ENGINI_COMPANY_TOKEN` variable, or dumping the environment (a presence test `[ -n "$ENGINI_API_KEY" ]` is
-   fine); and edits to the hook itself or to your Claude Code or Codex settings - including any command that
-   names your `.claude` or `.codex` folder itself, a wildcard name or a `.`/`..` step inside one, or a `cd` into a
-   folder under one (so even `ls ~/.claude` is refused). Read, Write, Edit, Grep and Glob paths are judged as
+   fine); and edits to the hook itself, the plugins folder or your home Claude Code or Codex settings - including
+   a command that changes a `.claude` or `.codex` folder itself, a wildcard name or a `.`/`..` step inside one. Read, Write, Edit, Grep and Glob paths are judged as
    given and again after resolving them against the session's folder and following symlinks. An
    `engini tools call` with a heredoc is judged as code unless it is Flo's own one-call shape: the `<<'EOF'` opener
    ends the command's first line and the reader is the `engini` CLI itself (`engini`, `npx @engini/cli` or
    `npx @engini/cli@<exact version>`).
 
-   **This applies to every project's own `.claude` and `.codex` folders too.** With the plugin enabled,
-   `ls .claude`, `git add .claude`, `grep -r x .claude` and a `cd` into a folder inside `.claude` are refused in
-   every project and every session, not only while Flo is working. Run those in your own terminal or turn the plugin off for the
-   session.
+   **A project's own `.claude` folder.** Read-only commands pass (`ls .claude`, `git add .claude`,
+   `grep -rn x .claude`, a `cd` into a folder inside it then `ls`) when every command in the chain only reads and every argument
+   is a plain word. A project's `settings.json` or `settings.local.json` in `.claude` may only be **read** from the
+   shell (`cat`, `grep`, `jq`, `git add|diff|log`, plain arguments, no redirects). A change goes through the Edit
+   or Write tool, and the guard **asks you first**; the prompt shows the change. The guard reads the file as it
+   will be after the change: adding, changing or removing `disableAllHooks`, `enabledPlugins`,
+   `extraKnownMarketplaces`, or an environment variable that changes how hooks start (`PATH`, `PYTHON*`, `HOME`,
+   `CLAUDE_CONFIG_DIR` and similar) is refused - make that change yourself. A change to `hooks`, the status line,
+   a credential helper or `env` is asked with a warning that it runs commands on this machine. The question is
+   offered in default, acceptEdits, plan and auto modes only; in bypass and dontAsk the guard refuses the change
+   (and in `-p` nobody can answer, so Claude Code refuses it). Any command containing the word `settings`
+   inside `.claude` is refused as a protected file - use the Read or Grep tool.
+   The settings in your home `.claude` folder are never changed by the agent; the home folder is taken from your
+   OS account, not from `$HOME`. `.codex` folders are still refused as a whole.
 3. **Your own settings** - the safety block below. Copy-paste; a plugin cannot install it for you.
 4. **The Engini server** refuses nothing here: your key is allowed to do all of it.
 
@@ -170,7 +179,10 @@ say he never runs them himself and never asks you to paste a key into the chat.
 - `-p` (non-interactive): nobody can answer, so the docs say the call is refused rather than asked. `dontAsk` is
   expected to do the same (inferred, not documented for a hook).
 
-Do not run Flo with `--dangerously-skip-permissions`: he holds a shell and your key.
+Do not run Flo with `--dangerously-skip-permissions`: he holds a shell and your key. Do not run the plugin in a
+host that answers permission prompts for you (an Agent SDK `canUseTool` callback that approves, or
+`--permission-prompt-tool`): every question the guard asks, the project-settings one included, would be
+approved without you.
 
 **While Flo has a shell and your key, he can do anything your key can do, including acting through your other
 connections.** The guard narrows one literal command form. It is a text matcher, not a sandbox. Deliberately open,
@@ -186,6 +198,9 @@ and tested as open:
   folder in the shell (`grep -r ... ~/.config`), and a custom `XDG_CONFIG_HOME` folder named by its own path in a
   shell command;
 - a settings folder name built from a variable or a wildcard in the folder name itself (`~/.cl*`);
+- a project settings file written by a script or a program that builds its name at run time, by a command
+  that writes many files without naming it (`git checkout <ref> -- .`, `git reset --hard`, `git apply`,
+  `tar x`, `unzip`, `cp -r`), and a hard link from a project settings file to your home one that already exists;
 - in the shell, a symlink to your settings or key folder that already exists (the command names only the link),
   and a program that changes folder itself before it writes (`os.chdir` in a script, `git -C`, `find -execdir`).
   Read, Write, Edit, Grep and Glob follow symlinks, so those tools are covered.
@@ -197,8 +212,9 @@ off for the session with `/plugin disable skills@engini` (that removes the guard
 else - your builds, git, other tools, other Engini apps' tools - runs normally.
 
 When the guard speaks, the message starts with `FLO-HOOK-ASK` (a prompt for you, for a **never-verb** you should approve
-only if you asked for it, or a **tool name it cannot read**) or `FLO-HOOK-DENY` (a refusal the agent reads, for a
-**raw-key command**, a **key read** or a **protected file**). A command that trips both is refused. See
+only if you asked for it, a **tool name it cannot read**, or a change to a **project's settings**) or `FLO-HOOK-DENY`
+(a refusal the agent reads, for a **raw-key command**, a **key read**, a **protected file** or a guarded **settings**
+change). A command that trips both is refused. See
 TROUBLESHOOTING.md.
 
 Claude Code's own permission rules (layer 3) match the four verbs inside a compound command such as

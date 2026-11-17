@@ -4,7 +4,9 @@
 Asks the user to confirm: the four never-verb `engini tools call` slugs (and any tool name it cannot read, which
 could be one of them). Refuses: the engini commands that take or store a raw API key (the refusal tells the agent to
 hand the command to the user's own terminal), reads of the engini CLI's stored login or key variables, and edits to
-this hook or the user's agent settings. Every other command and every other tool slug passes. A refusal beats a
+this hook, the plugins folder or the home agent settings. A change to a project's own
+settings file through Edit/Write is asked about (refused when it touches the guard's own keys); the shell may only read
+it. Every other command and every other tool slug passes. A refusal beats a
 question: a command that trips both is refused.
 
 A text matcher, not a sandbox: indirection (eval, a shell function, a script file) and anything that skips the
@@ -15,6 +17,7 @@ import json
 import os
 import posixpath
 import re
+import stat
 import sys
 
 # BEGIN GENERATED from tools/rules.json by tools/generate.py - do not edit by hand
@@ -26,16 +29,28 @@ RAW_KEY_COMMANDS = (('connect',), ('connections', 'auth-providers', 'create'), (
 RAW_KEY_FLAGS = ('--api-key',)
 KEY_ENV = '(?:ENGINI_API_KEY|ENGINI_API_TOKEN|ENGINI_COMPANY_TOKEN)'
 KEY_PATH = ('(?:\\.config|XDG_CONFIG_HOME\\}?|APPDATA%?|AppData[\\\\/]+Roaming)[\\\\/]+engini\\b', '[\\\\/]engini[\\\\/]+config\\.toml')
-SELF_PROTECT = ('deny-never-verbs', 'hooks[\\\\/][A-Za-z0-9_-]*hooks\\.json', '(?<![A-Za-z0-9_-])\\.claude[\\\\/]+(?:plugins|settings)', '(?<![A-Za-z0-9_-])\\.codex[\\\\/]', '(?<![A-Za-z0-9_-])\\.(?:claude|codex)[\\\\/]*(?=[\\s;&|)\'"]|\\Z)', '(?<![A-Za-z0-9_-])\\.claude[\\\\/]+[^\\s\\\\/]*[*?\\[{$`]', '(?<![A-Za-z0-9_-])\\.(?:claude|codex)[\\\\/](?:[^\\s\\\\/;&|<>]*[\\\\/])*\\.\\.?(?=[\\\\/\\s;&|)\'"<>`]|\\Z)', '(?<![A-Za-z0-9_-])(?:cd|pushd|chdir|Set-Location|Push-Location|sl)[ \\t(]+[^;&|\\n]*\\.(?:claude|codex)[\\\\/]')
+SELF_PROTECT = ('deny-never-verbs', 'hooks[\\\\/][A-Za-z0-9_-]*hooks\\.json', '(?<![A-Za-z0-9_-])\\.claude[\\\\/]+plugins', '(?<![A-Za-z0-9_-])\\.codex[\\\\/]', '(?<![A-Za-z0-9_-])\\.codex[\\\\/]*(?=[\\s;&|)\'"]|\\Z)', '(?<![A-Za-z0-9_-])\\.claude[\\\\/]+[^\\s\\\\/]*[*?\\[{$`]', '(?<![A-Za-z0-9_-])\\.(?:claude|codex)[\\\\/](?:[^\\s\\\\/;&|<>]*[\\\\/])*\\.\\.?(?=[\\\\/\\s;&|)\'"<>`]|\\Z)', '\\A(?!(?![\\s\\S]*?(?:settings|plugins|disableAllHooks|enabledPlugins|\\.\\.|--pre\\b|--ou|--hostname-bin|[A-Za-z0-9]~[0-9]))(?:[ \\t]*(?:ls|du|stat|file|wc|cat|head|tail|grep|rg|mkdir|pwd|echo|test|dir|gci|Get-ChildItem|git[ \\t]+(?:add|status|diff|log|show|ls-files|blame|commit))(?:[ \\t]+[^\\s;&|<>$`(){}*?\\[\\]\\\\#]+)*[ \\t]*|[ \\t]*cd(?:[ \\t]+[^\\s;&|<>$`(){}*?\\[\\]\\\\#]+)?[ \\t]*)(?:(?:&&|\\|\\||[;|\\n])(?:[ \\t]*(?:ls|du|stat|file|wc|cat|head|tail|grep|rg|mkdir|pwd|echo|test|dir|gci|Get-ChildItem|git[ \\t]+(?:add|status|diff|log|show|ls-files|blame|commit))(?:[ \\t]+[^\\s;&|<>$`(){}*?\\[\\]\\\\#]+)*[ \\t]*|[ \\t]*cd(?:[ \\t]+[^\\s;&|<>$`(){}*?\\[\\]\\\\#]+)?[ \\t]*))*\\Z)(?=[\\s\\S]*?(?:(?<![A-Za-z0-9_-])\\.claude[\\\\/]*(?=[\\s;&|)\\\'"]|\\Z)|(?<![A-Za-z0-9_-])(?:cd|pushd|chdir|Set-Location|Push-Location|sl)[ \\t(]+[^;&|\\n]*\\.claude[\\\\/]))')
+CLAUDE_FOLDER_READ = '\\A(?![\\s\\S]*?(?:settings|plugins|disableAllHooks|enabledPlugins|\\.\\.|--pre\\b|--ou|--hostname-bin|[A-Za-z0-9]~[0-9]))(?:[ \\t]*(?:ls|du|stat|file|wc|cat|head|tail|grep|rg|mkdir|pwd|echo|test|dir|gci|Get-ChildItem|git[ \\t]+(?:add|status|diff|log|show|ls-files|blame|commit))(?:[ \\t]+[^\\s;&|<>$`(){}*?\\[\\]\\\\#]+)*[ \\t]*|[ \\t]*cd(?:[ \\t]+[^\\s;&|<>$`(){}*?\\[\\]\\\\#]+)?[ \\t]*)(?:(?:&&|\\|\\||[;|\\n])(?:[ \\t]*(?:ls|du|stat|file|wc|cat|head|tail|grep|rg|mkdir|pwd|echo|test|dir|gci|Get-ChildItem|git[ \\t]+(?:add|status|diff|log|show|ls-files|blame|commit))(?:[ \\t]+[^\\s;&|<>$`(){}*?\\[\\]\\\\#]+)*[ \\t]*|[ \\t]*cd(?:[ \\t]+[^\\s;&|<>$`(){}*?\\[\\]\\\\#]+)?[ \\t]*))*\\Z'
+SETTINGS_PATH = '(?<![A-Za-z0-9_-])\\.claude[\\\\/]+settings'
+SETTINGS_SHELL_READ = "\\A[ \\t]*(?:cat|grep|jq|git[ \\t]+(?:add|diff|log))(?:[ \\t]+(?:~/)?(?:[A-Za-z0-9_@+,.:/=-]|'[^'\\n]*')+)*[ \\t]*(?:(?:&&|\\|\\||[;|\\n])[ \\t]*(?:cat|grep|jq|git[ \\t]+(?:add|diff|log))(?:[ \\t]+(?:~/)?(?:[A-Za-z0-9_@+,.:/=-]|'[^'\\n]*')+)*[ \\t]*)*\\Z"
+SETTINGS_REFUSE_KEYS = ('disableAllHooks', 'enabledPlugins', 'extraKnownMarketplaces')
+SETTINGS_REFUSE_ENV = '\\A(?:PATH|PYTHON\\w*|HOME|USERPROFILE|CLAUDE_CONFIG_DIR|BASH_ENV|ENV|ZDOTDIR|SHELL|NODE_OPTIONS|CLAUDE_CODE_\\w+|LD_\\w+|DYLD_\\w+)\\Z'
+SETTINGS_COMMAND_KEYS = ('hooks', 'statusLine', 'apiKeyHelper', 'awsAuthRefresh', 'awsCredentialExport', 'otelHeadersHelper', 'fileSuggestion', 'enableAllProjectMcpServers', 'enabledMcpjsonServers')
+ASK_MODES = frozenset(['acceptEdits', 'auto', 'default', 'plan'])
 # END GENERATED
 
-# The two ASK reasons go to the USER in Claude Code's permission prompt; every DENY reason goes to the agent.
+# The ASK reasons go to the USER in Claude Code's permission prompt; every DENY reason goes to the agent.
 R_NEVER = ASK_TOKEN + ": never-verb. This engini tool turns on/off, runs, reruns or deletes a workflow, which Flo does only when you asked for exactly that action on that workflow. Approve only if you did."
 R_UNREADABLE = ASK_TOKEN + ": unreadable tool name. The tool name in this engini command is built from a variable, a substitution or a pattern, so it cannot be checked against Flo's never list and could be one that turns on/off, runs, reruns or deletes a workflow. Approve only if you know what it runs."
 R_RAW_KEY = DENY_TOKEN + ": raw-key command. This engini command takes or stores an API key (connect, login, connections create/update/delete, auth-providers create/update, --api-key). Do not run it and do not ask the user to paste a key into the chat. Stop and tell the user to run the command in their OWN terminal, outside Claude Code and Codex - not with the ! prefix: in Claude Code's ! mode the input is not a terminal, so the CLI cannot hide the key. Give the exact command with no key in it (for example: engini login, or engini connect engini_workflows and choose auth method 1, x-api-key), never --api-key or a key in the arguments or environment, and ask them to tell you when it is done."
-ASK_REASONS = frozenset((R_NEVER, R_UNREADABLE))
+R_SETTINGS = ASK_TOKEN + ": project settings. This changes a settings file in this project's .claude folder. A project's settings file can switch hooks off, this guard included, or change what Claude may run without asking you. Approve only if you asked for this change and the path is your project's own .claude folder, not the one in your home folder."
+R_SETTINGS_CMD = ASK_TOKEN + ": project settings that run commands. This change adds, changes or removes hooks, a status line, a credential helper or environment variables in a project's .claude settings file. Those run commands on this machine, with your permissions, in every later session in this project, without asking you again. Approve only if you asked for exactly this change and have read every command in it."
+ASK_REASONS = frozenset((R_NEVER, R_UNREADABLE, R_SETTINGS, R_SETTINGS_CMD))
 R_KEY_READ = DENY_TOKEN + ": key read. This reads the engini CLI's stored login, an Engini key variable or the whole environment. Only a presence test such as [ -n \"$ENGINI_API_KEY\" ] is allowed."
 R_SELF = DENY_TOKEN + ": protected file. This changes Flo's guard hook or your agent settings. Change those yourself."
+R_SETTINGS_OFF = DENY_TOKEN + ": guard settings. This change to a .claude settings file adds, changes or removes disableAllHooks, enabledPlugins or extraKnownMarketplaces, or an environment variable that changes how hooks start (PATH, PYTHON*, HOME, CLAUDE_CONFIG_DIR and similar), so it could switch Flo's guard off. Do not retry it another way: show the user the exact change and let them make it themselves."
+R_SETTINGS_UNCHECKED = DENY_TOKEN + ": settings change not checkable. The guard checks a change to a .claude settings file by applying it to the file and reading the result as JSON, and it could not: old_string is not in the file exactly once, the result is not a JSON object, or the file is not a readable regular file under 1 MB. Re-read the file and retry with an exact old_string, or Write the whole file."
+R_SETTINGS_SHELL = DENY_TOKEN + ": settings from the shell. In the shell a .claude settings file may only be read, with cat, grep, jq or git add/diff/log and plain arguments: no redirect, variable, wildcard, folder change or other command. To change a project's settings file use the Edit or Write tool, which asks the user. The settings file in the home folder is the user's to change."
 R_BAD_INPUT = DENY_TOKEN + ": unreadable hook input, refused (the guard fails closed)."
 
 FILE_TOOLS = ('Read', 'Edit', 'Write', 'MultiEdit', 'NotebookEdit')
@@ -52,6 +67,13 @@ PRESENCE = re.compile(r'(?:\[\[?|\btest)[ \t]+-[nz][ \t]+("?)\$(?:' + KEY_ENV + 
 ENV_DUMP = re.compile(r'/proc/[^/\s]+/environ|(?i:(?<![$\w])env:|GetEnvironmentVariables)')
 KEY_PATH_RE = re.compile('|'.join(KEY_PATH), re.I)
 SELF_RE = re.compile('|'.join(SELF_PROTECT), re.I)
+CLAUDE_FOLDER_READ_RE = re.compile(CLAUDE_FOLDER_READ, re.I)
+SETTINGS_RE = re.compile(SETTINGS_PATH, re.I)
+SETTINGS_READ_RE = re.compile(SETTINGS_SHELL_READ)
+REFUSE_ENV_RE = re.compile(SETTINGS_REFUSE_ENV, re.I)
+SH_WORD = re.compile(r"(?:[^\s;&|']|'[^'\n]*')+")
+MAX_SETTINGS = 1024 * 1024
+MISSING = object()
 KEY_ENV_RE = re.compile(KEY_ENV)
 # A folder that holds the key folder (home, ~/.config, %APPDATA%, a drive or filesystem root): a recursive Grep or
 # Glob from it reaches the key without naming it. Matched on the normalised path (/ separators, no trailing /).
@@ -291,7 +313,7 @@ def _shipped_start(prefix):
     return False
 
 
-def judge_shell(cmd, ps):
+def judge_shell(cmd, ps, cwd='.'):
     text = cmd if ps else strip_flo_heredoc(cmd)
     text = text.replace('`\n' if ps else '\\\n', '')
     plain = re.sub(r"['\"`\\]" if ps else r"['\"\\]", '', text)
@@ -300,6 +322,12 @@ def judge_shell(cmd, ps):
             return R_SELF
         if KEY_PATH_RE.search(t):
             return R_KEY_READ
+    if _in_claude_folder(cwd) and not all(CLAUDE_FOLDER_READ_RE.match(t) for t in (text, plain)):
+        return R_SELF
+    if any(SETTINGS_RE.search(t) for t in (text, plain, _dots(plain))):
+        reason = _settings_shell(text, ps, cwd)
+        if reason:
+            return reason
     rest = PRESENCE.sub(' ', text)
     if KEY_ENV_RE.search(rest) or KEY_ENV_RE.search(re.sub(r"['\"`\\]", '', rest)) or ENV_DUMP.search(rest):
         return R_KEY_READ
@@ -404,6 +432,132 @@ def _reaches_key(real):
     return False
 
 
+def _account_home():
+    """The OS account's home folder, from the user database - not $HOME, which a settings file or a command can
+    point elsewhere. None where there is no such database (Windows) or no entry for this user."""
+    try:
+        import pwd
+        return pwd.getpwuid(os.getuid()).pw_dir
+    except Exception:
+        return None
+
+
+def _in_agent_home(real):
+    """True when `real` is inside the user's own Claude Code folder (.claude under the account home or $HOME, or
+    CLAUDE_CONFIG_DIR), compared up the tree by inode and case-blind, so a symlink, a firmlink or a case variant
+    cannot pass for a project's folder."""
+    tops = [os.path.realpath(os.path.join(h, '.claude')) for h in (_account_home(), os.path.expanduser('~')) if h]
+    tops += [os.path.realpath(os.path.expanduser(d)) for name, d in _agent_dirs() if name == '.claude']
+    a = real
+    while True:
+        if any(a == t or a.lower() == t.lower() or _same(a, t) for t in tops):
+            return True
+        up = os.path.dirname(a)
+        if up == a:
+            return False
+        a = up
+
+
+def _in_claude_folder(cwd):
+    """True when the shell runs inside a .claude or .codex folder (a project's or the home one, by name, inode or
+    CLAUDE_CONFIG_DIR): a relative path there reaches settings, plugins or the hook without naming them."""
+    for p in {cwd, os.path.realpath(cwd), os.path.normpath(cwd)}:
+        if any(part.lower() in ('.claude', '.codex') for part in re.split(r'[\\/]+', p)):
+            return True
+    return any(_in_agent_home(r) for r in _reals('.', cwd))
+
+
+def _settings_shell(text, ps, cwd):
+    """A shell command naming a .claude settings file may only READ a project's file: every command in the chain is cat,
+    grep, jq or git add/diff/log with plain or single-quoted arguments (no redirect, variable, wildcard or folder
+    change, so the path named is the path opened, and none of them writes a file), and no path it names resolves
+    into the home .claude folder. None = a read the other rules then judge."""
+    if ps or not SETTINGS_READ_RE.match(text.strip()):
+        return R_SETTINGS_SHELL
+    words = [w.replace("'", '') for w in SH_WORD.findall(text)]
+    if any(w.startswith('--ou') for w in words):   # git diff/log --output (and its abbreviations) writes a file
+        return R_SETTINGS_SHELL
+    for w in words:
+        if SETTINGS_RE.search(w) or SETTINGS_RE.search(_dots(w)):
+            for p in [w] + [w[i + 1:] for i, c in enumerate(w) if c in '=:']:
+                if any(_in_agent_home(r) for r in _reals(p, cwd)):
+                    return R_SELF
+    return None
+
+
+def _after(tool, ti, text):
+    """The settings file's text after Write/Edit/MultiEdit runs on `text`, or None when that is not exactly known
+    (old_string missing or not unique, a malformed edit)."""
+    if tool == 'Write':
+        c = ti.get('content')
+        return c if isinstance(c, str) else None
+    edits = [ti] if tool == 'Edit' else ti.get('edits')
+    if not isinstance(edits, list) or not edits:
+        return None
+    for e in edits:
+        if not isinstance(e, dict):
+            return None
+        old, new, every = e.get('old_string'), e.get('new_string'), e.get('replace_all', False)
+        if not isinstance(old, str) or not isinstance(new, str) or not isinstance(every, bool):
+            return None
+        if re.search(r"\$[$&`']", new):   # a replacement pattern if the tool substitutes with String.replace
+            return None
+        n = text.count(old) if old else (0 if text else 1)
+        if n == 0 or (n > 1 and not every):
+            return None
+        text = new if not old else text.replace(old, new, -1 if every else 1)
+    return text
+
+
+def _settings_write(tool, ti, reals, mode):
+    """A file tool writing a .claude settings file. The home one, a notebook tool, or a mode in which the question
+    may not reach the user: refused. Otherwise the change is applied to the file's current text and the RESULT is
+    compared with the file as JSON, so a key split across two edits or spelled with an escape is seen whole."""
+    if tool == 'NotebookEdit' or any(_in_agent_home(r) for r in reals):
+        return R_SELF
+    if mode not in ASK_MODES:
+        return R_SELF
+    if len(reals) != 1:
+        return R_SETTINGS_UNCHECKED
+    try:
+        st = os.stat(reals[0])
+    except FileNotFoundError:
+        st = None
+    except OSError:
+        return R_SETTINGS_UNCHECKED
+    if st is not None and (not stat.S_ISREG(st.st_mode) or st.st_size > MAX_SETTINGS):
+        return R_SETTINGS_UNCHECKED
+    before_text = ''
+    if st is not None:
+        try:
+            with open(reals[0], encoding='utf-8') as f:
+                before_text = f.read()
+        except (OSError, ValueError):
+            return R_SETTINGS_UNCHECKED
+    after_text = _after(tool, ti, before_text.replace('\r\n', '\n'))
+    try:
+        after = json.loads(after_text) if after_text is not None else None
+    except ValueError:
+        after = None
+    if not isinstance(after, dict) or not isinstance(after.get('env', {}), dict):
+        return R_SETTINGS_UNCHECKED
+    try:
+        before = json.loads(before_text) if before_text.strip() else {}
+    except ValueError:
+        before = {}
+    before = before if isinstance(before, dict) else {}   # unreadable before = every key in the result is new
+    if any(before.get(k, MISSING) != after.get(k, MISSING) for k in SETTINGS_REFUSE_KEYS):
+        return R_SETTINGS_OFF
+    b_env = before.get('env') if isinstance(before.get('env'), dict) else {}
+    a_env = after.get('env', {})
+    changed = [k for k in set(b_env) | set(a_env) if b_env.get(k, MISSING) != a_env.get(k, MISSING)]
+    if any(REFUSE_ENV_RE.match(k) for k in changed):
+        return R_SETTINGS_OFF
+    if changed or any(before.get(k, MISSING) != after.get(k, MISSING) for k in SETTINGS_COMMAND_KEYS):
+        return R_SETTINGS_CMD
+    return R_SETTINGS
+
+
 def decide(raw_stdin):
     """The reason for one PreToolUse payload (an ASK_REASONS member = ask the user, anything else = deny), or None
     to allow. Never raises."""
@@ -413,8 +567,9 @@ def decide(raw_stdin):
             return R_BAD_INPUT
         tool, ti = payload.get('tool_name'), payload['tool_input']
         cwd = payload.get('cwd') if isinstance(payload.get('cwd'), str) and payload.get('cwd') else os.getcwd()
+        mode = payload.get('permission_mode')
         if tool in SHELL_TOOLS:
-            return judge_shell(_str(ti, 'command', True), tool == 'PowerShell')
+            return judge_shell(_str(ti, 'command', True), tool == 'PowerShell', cwd)
         if tool in FILE_TOOLS:
             path = _str(ti, 'notebook_path' if tool == 'NotebookEdit' and 'file_path' not in ti else 'file_path', True)
             forms, reals = _file_forms(path, cwd)
@@ -422,6 +577,8 @@ def decide(raw_stdin):
                 return R_SELF
             if any(KEY_PATH_RE.search(f) for f in forms) or any(_reaches_key(r) for r in reals):
                 return R_KEY_READ
+            if tool in WRITE_TOOLS and any(SETTINGS_RE.search(f) for f in forms):
+                return _settings_write(tool, ti, reals, mode)
             return None
         if tool in SEARCH_TOOLS:
             path = _str(ti, 'path', False)
