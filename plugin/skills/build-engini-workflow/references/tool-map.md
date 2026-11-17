@@ -34,8 +34,8 @@ API-key connections only (`403 API_KEY_REQUIRED` otherwise).
 | `engini_workflows_get_builder_field_options` | Option `{id,label}` list of ONE dropdown field, read through one of the user's connections. Also serves a filter field with `hasOptions` (field = the filter field). Slug `model.{provider}` + field `model` reads an AI agent's model list through the model connection (404 `UNKNOWN_FIELD` for `model.azure_openai`; 502 when the list cannot be read) | `slug`, `field`, `connectionId` | `kind` | `{"slug":"<slug>","field":"BOARD_ID","connectionId":123,"kind":"action"}` |
 | `engini_workflows_list_builder_connections` | The user's connections of one app in the key's workspace/environment: `[{connectionId, name, isDefault, applicationId}]`. `app` also takes `model.{provider}`: the connections an AI agent's model of that provider can run on | `app` | - | `{"app":"<exact catalog app slug or app-{id}>"}` - without `app`: 400 "Name the app". The catalog can hold duplicate/draft/test apps: prefer the plain slug |
 | `engini_workflows_compile_workflow_plan` | Dry run: compile + validate, saves nothing (may read the vendor for dropdown labels). Returns `{name, steps, jumps, diagnostics, keyMap, hasErrors, workspaceId, environmentId}` - the last two are the scope of the **connection** used; credential-looking inputs show `***` | `plan` | `baseWorkflowId` (when editing) | `{"plan":{...},"baseWorkflowId":456}` |
-| `engini_workflows_get_workflow_plan` | Saved workflow as a plan (`s{N}` keys, opaque steps) + `revisionId`. Values are NOT redacted | `workflowId` | - | `{"workflowId":456}` |
-| `engini_workflows_create_workflow_from_plan` | **Write.** Creates the workflow turned off, flagged AI-built. 201 `{workflowId, designerUrl, revisionId, diagnostics, workspaceId, environmentId}` | `plan` | `folderId` | `{"plan":{...},"folderId":789}` |
+| `engini_workflows_get_workflow_plan` | Saved workflow as a plan (`s{N}` keys, opaque steps) + `revisionId` (+ `webhookUrl` for a webhook trigger). Values are NOT redacted | `workflowId` | - | `{"workflowId":456}` |
+| `engini_workflows_create_workflow_from_plan` | **Write.** Creates the workflow turned off, flagged AI-built. 201 `{workflowId, designerUrl, revisionId, diagnostics, workspaceId, environmentId, webhookUrl}` (`webhookUrl` only for a webhook trigger) | `plan` | `folderId` | `{"plan":{...},"folderId":789}` |
 | `engini_workflows_update_workflow_from_plan` | **Write.** Full-graph update of a turned-off workflow, saved turned off. 200 `{workflowId, revisionId, diagnostics, workspaceId, environmentId}` | `workflowId`, `plan`, `expectedRevisionId` | - | `{"workflowId":456,"plan":{...},"expectedRevisionId":<revisionId from get_workflow_plan>}` |
 
 Name lookups (read-only, used by the preflight to resolve a folder or workflow the user names):
@@ -51,6 +51,13 @@ case-insensitive). Exactly one match -> use its id. Zero or several -> STOP, lis
 Notes:
 - `designerUrl` is `<app>/workflows/{id}/edit`; it is null when the deployment has no client URL configured - then
   build it from the app host yourself and say so.
+- `webhookUrl` (in the `create_workflow_from_plan` and `get_workflow_plan` responses, and on `get_workflow`) is the
+  address the sender calls to start the workflow - e.g. a Webflow form's webhook. It is returned only when the
+  trigger is a webhook Engini hands out, and omitted for every other trigger. The token inside it is what authorizes
+  a call, so treat it like a key: give it to the user for the sender's settings, never write it to a session log,
+  lesson or file. A relative path on the trigger shows as `{name}` placeholders the sender fills in. Calls answer
+  404 while the workflow is turned off. `update_workflow_from_plan` does not return it - read it back with
+  `get_workflow_plan`.
 - `dependsOn` (options of a field that depends on another field) **cannot be sent** through the connector. Leave
   such fields for the user and list them in the proposal.
 - `get_builder_tool_schema` with a `connectionId` and `get_builder_field_options` are rate-limited vendor reads: read
