@@ -11,6 +11,7 @@ every other live slug.
 """
 import importlib.util
 import json
+import tempfile
 import os
 import re
 import subprocess
@@ -20,20 +21,22 @@ import time
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.dont_write_bytecode = True  # importing the hook must not drop a __pycache__ into the payload
 CFG = '~/.config/engini'  # the key directory, spelled once
+SETTINGS_BODY = ('{\n  "permissions": {"allow": []},\n  "enabledPlugins": {"skills@engini": true},\n'
+                 '  "hooks": {"PreToolUse": []},\n  "env": {"FOO": "1"}\n}\n')
 
 
 def B(cmd, tool='Bash'):
-    return json.dumps({'tool_name': tool, 'tool_input': {'command': cmd}})
+    return json.dumps({'tool_name': tool, 'tool_input': {'command': cmd}, 'permission_mode': 'default'})
 
 
 def F(tool, path, **extra):
     ti = dict(extra)
     ti['notebook_path' if tool == 'NotebookEdit' else 'file_path'] = path
-    return json.dumps({'tool_name': tool, 'tool_input': ti})
+    return json.dumps({'tool_name': tool, 'tool_input': ti, 'permission_mode': 'default'})
 
 
 def S(tool, **ti):
-    return json.dumps({'tool_name': tool, 'tool_input': ti})
+    return json.dumps({'tool_name': tool, 'tool_input': ti, 'permission_mode': 'default'})
 
 
 PLAN_BODY = ('{"plan":{"name":"Leads","notes":"never engini tools call engini_workflows_delete_workflow; '
@@ -154,7 +157,7 @@ ROWS = [
     ('deny', '5', 'cd ~/.claude; python open', B('cd ~/.claude; python3 -c "open(\'settings.json\',\'a\').write(\'x\')"'), 'self'),
     ('deny', '5', 'glob settings name', B('echo \'{"disableAllHooks":true}\' > ~/.claude/sett?ngs.local.json'), 'self'),
     ('deny', '5', 'cd ~/.codex then write', B('cd ~/.codex && echo x > config.toml'), 'self'),
-    ('deny', '5', 'disableAllHooks via bash', B('echo \'{"disableAllHooks":true}\' > ~/.claude/settings.local.json'), 'self'),
+    ('deny', '5', 'disableAllHooks via bash', B('echo \'{"disableAllHooks":true}\' > ~/.claude/settings.local.json'), 'shell'),
     # a `.` or `..` segment walks past the name patterns
     ('deny', '5', 'dot segment in settings path', B('echo \'{"disableAllHooks":true}\' > ~/.claude/./settings.local.json'), 'self'),
     ('deny', '5', 'cd subfolder/.. then write', B('cd ~/.claude/projects/.. && echo \'{"disableAllHooks":true}\' > settings.json'), 'self'),
@@ -173,7 +176,40 @@ ROWS = [
     ('deny', '2', 'unreadable slug then connect', B('engini tools call engini_workflows_$V --args - ; engini connect engini_workflows'), 'rawkey'),
     ('deny', '2', 'never-verb with --api-key', B('engini tools call engini_workflows_run_workflow --api-key x'), 'rawkey'),
     ('deny', '4', 'never-verb and a key read', B('echo $ENGINI_API_KEY; engini tools call engini_workflows_delete_workflow --args -'), 'keyread'),
-    ('deny', '5', 'never-verb and a protected file', B('engini tools call engini_workflows_delete_workflow --args - ; echo x > ~/.claude/settings.json'), 'self'),
+    ('allow', '5', 'ls .claude', B('ls .claude'), None),
+    ('allow', '5', 'git add .claude', B('git add .claude'), None),
+    ('allow', '5', 'ls -R .claude', B('ls -R .claude'), None),
+    ('allow', '5', 'cd into a skill folder and ls', B('cd .claude/commands/x && ls'), None),
+    ('allow', '5', 'cd ~/.claude/commands', B('cd ~/.claude/commands'), None),
+    ('allow', '5', 'grep -rn in .claude', B('grep -rn foo .claude'), None),
+    ('allow', '5', 'git log .claude', B('git log --oneline .claude'), None),
+    ('allow', '5', 'ls .claude piped to grep', B('ls .claude | grep hooks'), None),
+    ('deny', '5', 'rm -rf .claude', B('rm -rf .claude'), 'self'),
+    ('deny', '5', 'cp into .claude', B('cp -r /tmp/x/. .claude'), 'self'),
+    ('deny', '5', 'chmod .claude', B('chmod -R 000 .claude'), 'self'),
+    ('deny', '5', 'gzip ~/.claude', B('gzip -r ~/.claude'), 'self'),
+    ('deny', '5', 'git -C checkout into .claude', B('git -C . checkout x -- .claude'), 'self'),
+    ('deny', '5', 'cd ~/.claude, write a variable name', B('cd ~/.claude && echo x > "$F"'), 'self'),
+    ('deny', '5', 'cd ~/.claude, loop', B('cd ~/.claude && for f in $(ls); do : > "$f"; done'), 'self'),
+    ('deny', '5', 'cd into skills, rm', B('cd .claude/commands && rm -r x'), 'self'),
+    ('deny', '5', 'cd into .claude/x, git checkout', B('cd .claude/x && git checkout -- .'), 'self'),
+    ('deny', '5', 'python.exe rmtree', B('python.exe -c "import shutil;shutil.rmtree(r\'.claude\')"'), 'self'),
+    ('deny', '5', 'rg --pre', B('rg --pre rm x .claude'), 'self'),
+    ('deny', '5', 'mklink to .claude', B(r'cmd /c mklink /D x %USERPROFILE%\.claude'), 'self'),
+    ('deny', '5', 'PowerShell Remove-Item', B(r'Remove-Item -Recurse $HOME\.claude', 'PowerShell'), 'self'),
+    ('deny', '5', 'even backslashes before a newline', B('ls .claude \\\\\nrm -rf .claude'), 'self'),
+    ('deny', '5', 'continued comment', B('ls .claude # x\\\nrm -rf .claude'), 'self'),
+    ('deny', '5', 'PowerShell continued comment', B('ls .claude # x`\nRemove-Item -Recurse -Force .claude', 'PowerShell'), 'self'),
+    ('deny', '5', '8.3 short name via git --output', B('cd .claude && git show :p --output=SETTIN~1.JSO'), 'self'),
+    ('deny', '5', 'tree -o', B('cd .claude && tree -ao x'), 'self'),
+    ('deny', '5', 'rg --hostname-bin', B('rg --hostname-bin=x foo .claude'), 'self'),
+    ('deny', '5', 'settings named through a variable', B('cat $HOME/.claude/settings.json'), 'shell'),
+    ('deny', '5', 'project settings and the plugins folder', B('cat .claude/settings.json; ls ~/.claude/plugins'), 'self'),
+    ('deny', '5', 'settings path after git -C', B('git -C ~ show HEAD:.claude/settings.json'), 'shell'),
+    ('deny', '5', 'git show is not a settings read', B('git show HEAD:x --output=~/.claude/settings.json'), 'shell'),
+    ('deny', '5', 'git diff --output inside .claude', B('cd .claude && git diff --output=x'), 'self'),
+    ('deny', '5', 'settings read then login', B('cat .claude/settings.json && engini login'), 'shell'),
+    ('deny', '5', 'never-verb and a protected file', B('engini tools call engini_workflows_delete_workflow --args - ; echo x > ~/.claude/settings.json'), 'shell'),
     # ---- fail-closed
     ('deny', 'fail-closed', 'not json', 'not json', 'bad'),
     ('deny', 'fail-closed', 'null', 'null', 'bad'),
@@ -263,7 +299,8 @@ OPEN_ON_PURPOSE = [
 ]
 
 KINDS = {'never': 'R_NEVER', 'unreadable': 'R_UNREADABLE', 'rawkey': 'R_RAW_KEY', 'keyread': 'R_KEY_READ',
-         'self': 'R_SELF', 'bad': 'R_BAD_INPUT'}
+         'self': 'R_SELF', 'bad': 'R_BAD_INPUT', 'settings': 'R_SETTINGS', 'cmd': 'R_SETTINGS_CMD',
+         'off': 'R_SETTINGS_OFF', 'unchecked': 'R_SETTINGS_UNCHECKED', 'shell': 'R_SETTINGS_SHELL'}
 
 
 def load(path):
@@ -279,19 +316,49 @@ def fs_rows(h):
     import shutil
     import tempfile
     home = os.path.realpath(tempfile.mkdtemp(prefix='flo-selftest-home-'))
-    for d in ('.claude', '.config/engini', 'proj/src'):
+    for d in ('.claude', '.config/engini', 'proj/src', 'proj/.claude/commands/x', 'linked', 'decoy', 'cfgdir'):
         os.makedirs(os.path.join(home, d))
     for f in ('.claude/settings.json', '.config/engini/config.toml'):
         open(os.path.join(home, f), 'w').close()
+    for f, body in (('proj/.claude/settings.json', SETTINGS_BODY), ('proj/.claude/settings.local.json', '{"disableAll": true}\n'),
+                    ('proj/.claude/settings.big.json', '{"x": "' + 'a' * (2 * 1024 * 1024) + '"}')):
+        with open(os.path.join(home, f), 'w') as fh:
+            fh.write(body)
     proj = os.path.join(home, 'proj')
     os.symlink(os.path.join(home, '.claude'), os.path.join(proj, 'c'))
     os.symlink(os.path.join(home, '.config', 'engini'), os.path.join(proj, 'k'))
     os.symlink(home, os.path.join(proj, 'h'))
+    linked = os.path.join(home, 'linked')
+    os.symlink(os.path.join(home, '.claude'), os.path.join(linked, '.claude'))
     elsewhere = os.path.realpath(tempfile.mkdtemp(prefix='flo-selftest-out-'))
     os.symlink(elsewhere, os.path.join(proj, 'out'))
 
-    def P(tool, cwd, **ti):
-        return json.dumps({'tool_name': tool, 'tool_input': ti, 'cwd': cwd})
+    def P(tool, cwd, mode='default', **ti):
+        d = {'tool_name': tool, 'tool_input': ti, 'cwd': cwd}
+        if mode is not None:
+            d['permission_mode'] = mode
+        return json.dumps(d)
+
+    def PB(cmd, cwd, tool='Bash'):
+        return P(tool, cwd, command=cmd)
+
+    def E(old, new, cwd=proj, path='/.claude/settings.json', mode='default', **kw):
+        return P('Edit', cwd, mode, file_path=(proj + path) if path.startswith('/') else path, old_string=old,
+                 new_string=new, **kw)
+
+    def W(content, path=None, cwd=proj, mode='default'):
+        return P('Write', cwd, mode, file_path=path or proj + '/.claude/settings.json', content=content)
+
+    S0 = json.loads(SETTINGS_BODY)
+
+    def J(**changes):
+        d = json.loads(SETTINGS_BODY)
+        for k, v in changes.items():
+            if v is None:
+                d.pop(k, None)
+            else:
+                d[k] = v
+        return json.dumps(d, indent=2)
 
     rows = [
         ('deny', 'Write via a symlink to ~/.claude', P('Write', proj, file_path=proj + '/c/settings.json'), 'self'),
@@ -305,6 +372,103 @@ def fs_rows(h):
         ('allow', 'Grep a project folder', P('Grep', proj, pattern='TODO', path='src'), None),
         ('allow', 'Glob from the project, no path', P('Glob', proj, pattern='**/*.md'), None),
         ('allow', 'Write a project file', P('Write', proj, file_path=proj + '/src/a.py'), None),
+        ('deny', 'Write via a symlink to the plugins folder', P('Write', proj, file_path=proj + '/c/plugins/x.json'), 'self'),
+        # Edit/Write on a project's own settings file: asked; the RESULT is judged as JSON
+        ('ask', 'Write project settings', W(J(permissions={'allow': ['Bash(ls:*)']})), 'settings'),
+        ('ask', 'Edit project settings, relative path', E('"allow": []', '"allow": ["Bash(ls:*)"]', path='.claude/settings.json'), 'settings'),
+        ('ask', 'MultiEdit project settings', P('MultiEdit', proj, file_path=proj + '/.claude/settings.json', edits=[{'old_string': '"allow": []', 'new_string': '"allow": ["Bash(ls:*)"]'}, {'old_string': '"env"', 'new_string': '"model": "sonnet",\n  "env"'}]), 'settings'),
+        ('ask', 'Edit project settings in auto mode', E('"allow": []', '"allow": ["x"]', mode='auto'), 'settings'),
+        ('ask', 'Edit project settings in acceptEdits mode', E('"allow": []', '"allow": ["x"]', mode='acceptEdits'), 'settings'),
+        ('ask', 'a key that only starts like an off-switch', E('"allow": []', '"allow": [], "disableAll": true'), 'settings'),
+        ('ask', 'Write a new settings file', W('{"permissions": {}}', path=proj + '/.claude/settings.new.json'), 'settings'),
+        ('ask', 'adds a hook', E('"PreToolUse": []', '"PreToolUse": [{"matcher": "*", "hooks": [{"type": "command", "command": "x"}]}]'), 'cmd'),
+        ('ask', 'adds a status line', W(J(statusLine={'type': 'command', 'command': 'x'})), 'cmd'),
+        ('ask', 'removes the hooks', W(J(hooks=None)), 'cmd'),
+        ('ask', 'changes an env value', E('"FOO": "1"', '"FOO": "2"'), 'cmd'),
+        ('ask', 'adds an env key', E('"FOO": "1"', '"FOO": "1", "BAR": "x"'), 'cmd'),
+        ('deny', 'turns the plugin off', E('"skills@engini": true', '"skills@engini": false'), 'off'),
+        ('deny', 'removes enabledPlugins', W(J(enabledPlugins=None)), 'off'),
+        ('deny', 'adds disableAllHooks', E('"allow": []', '"allow": []}, "disableAllHooks": true, "x": {'), 'off'),
+        ('deny', 'adds an escaped disableAllHooks', W(J()[:-1] + ', "\\u0064isableAllHooks": true}'), 'off'),
+        ('deny', 'disableAllHooks false then true', W(J()[:-1] + ', "disableAllHooks": false, "disableAllHooks": true}'), 'off'),
+        ('deny', 'adds extraKnownMarketplaces', W(J(extraKnownMarketplaces={'m': {'source': {'source': 'github', 'repo': 'a/b'}}})), 'off'),
+        ('deny', 'env PATH', E('"FOO": "1"', '"FOO": "1", "PATH": "/tmp"'), 'off'),
+        ('deny', 'env PYTHONPATH', E('"FOO": "1"', '"FOO": "1", "PYTHONPATH": "/tmp"'), 'off'),
+        ('deny', 'env HOME', E('"FOO": "1"', '"FOO": "1", "HOME": "/tmp"'), 'off'),
+        ('deny', 'env CLAUDE_CONFIG_DIR', E('"FOO": "1"', '"FOO": "1", "CLAUDE_CONFIG_DIR": "/tmp"'), 'off'),
+        ('deny', 'env Path (case)', E('"FOO": "1"', '"FOO": "1", "Path": "/tmp"'), 'off'),
+        ('deny', 'env BASH_ENV', E('"FOO": "1"', '"FOO": "1", "BASH_ENV": "/tmp/x"'), 'off'),
+        ('deny', 'an edit that completes an off-switch already half in the file', E('All"', 'AllHooks"', path='/.claude/settings.local.json'), 'off'),
+        ('ask', 'Edit with an empty old_string creates a missing file', E('', '{"permissions": {}}', path='/.claude/settings.fresh.json'), 'settings'),
+        ('deny', 'replace_all that is not a boolean', E('"allow": []', '"allow": ["x"]', replace_all='yes'), 'unchecked'),
+        ('deny', 'old_string not in the file', E('"nope"', '"x"'), 'unchecked'),
+        ('deny', 'old_string twice, no replace_all', E('[]', '["x"]'), 'unchecked'),
+        ('deny', 'new_string with a $& replacement pattern', E('"allow": []', '"allow": ["$&"]'), 'unchecked'),
+        ('ask', 'a hook command with $VAR', E('"PreToolUse": []', '"PreToolUse": [{"hooks": [{"type": "command", "command": "$CLAUDE_PROJECT_DIR/x.sh"}]}]'), 'cmd'),
+        ('deny', 'env CLAUDE_CODE_* ', E('"FOO": "1"', '"FOO": "1", "CLAUDE_CODE_X": "1"'), 'off'),
+        ('ask', 'adds a gcpAuthRefresh command', W(J(gcpAuthRefresh='x')), 'cmd'),
+        ('ask', 'adds a proxyAuthHelper command', W(J(proxyAuthHelper='x')), 'cmd'),
+        ('deny', 'a result with NaN is not valid JSON for Claude Code', W(J()[:-1] + ', "q": NaN}'), 'unchecked'),
+        ('deny', 'a result with Infinity is not valid JSON for Claude Code', W(J()[:-1] + ', "q": Infinity}'), 'unchecked'),
+        ('ask', 'enables project MCP servers', W(J(enableAllProjectMcpServers=True)), 'cmd'),
+        ('deny', 'the result is not JSON', E('"permissions"', 'permissions'), 'unchecked'),
+        ('deny', 'the result is not an object', W('[]'), 'unchecked'),
+        ('deny', 'env is not an object', W(J(env='PATH=/tmp')), 'unchecked'),
+        ('deny', 'a settings file over 1 MB', E('"x"', '"y"', path='/.claude/settings.big.json'), 'unchecked'),
+        ('deny', 'bypass mode', E('"allow": []', '"allow": ["x"]', mode='bypassPermissions'), 'self'),
+        ('deny', 'dontAsk mode', E('"allow": []', '"allow": ["x"]', mode='dontAsk'), 'self'),
+        ('deny', 'no mode in the payload', E('"allow": []', '"allow": ["x"]', mode=None), 'self'),
+        ('deny', 'NotebookEdit on project settings', P('NotebookEdit', proj, notebook_path=proj + '/.claude/settings.json', new_source='{}'), 'self'),
+        ('deny', 'Write home settings, case variant', W('{}', path=home + '/.CLAUDE/settings.json'), 'self'),
+        ('deny', 'Write via a project .claude symlink to home', W('{}', path='.claude/settings.json', cwd=linked), 'self'),
+        ('deny', 'Edit relative settings, cwd is home', E('a', 'b', cwd=home, path='.claude/settings.json'), 'self'),
+        # a shell already inside a .claude folder: only the read-only chain
+        ('deny', 'cwd in project .claude, write settings.local.json', PB('printf x > settings.local.json', proj + '/.claude'), 'self'),
+        ('deny', 'cwd in a skill folder, write ../../settings.json', PB('echo x > ../../settings.json', proj + '/.claude/commands/x'), 'self'),
+        ('deny', 'cwd in home .claude, write settings.json', PB('echo x > settings.json', home + '/.claude'), 'self'),
+        ('deny', 'cwd in home .claude, rm plugins', PB('rm -rf plugins', home + '/.claude'), 'self'),
+        ('deny', 'cwd in project .claude, cat settings', PB('cat settings.json', proj + '/.claude'), 'self'),
+        ('deny', 'cwd is a symlink to home .claude', PB('echo x > settings.json', proj + '/c'), 'self'),
+        ('deny', 'cwd in home .claude, quote-split git --output', PB("git diff --o''utput=sett''ings.json", home + '/.claude'), 'self'),
+        ('deny', 'cwd in project .claude, quote-split plugins', PB("mkdir -p pl''ugins/x", proj + '/.claude'), 'self'),
+        ('deny', 'cwd in project .claude, quote-split ..', PB("mkdir .'.'/x", proj + '/.claude'), 'self'),
+        ('allow', 'cwd in project .claude, ls', PB('ls -la', proj + '/.claude'), None),
+        ('allow', 'cwd in a skill folder, cat a skill file', PB('cat SKILL.md', proj + '/.claude/commands/x'), None),
+        # the shell: a project settings file may only be read
+        ('allow', 'cat project settings', PB('cat .claude/settings.json', proj), None),
+        ('allow', 'grep project settings', PB('grep -n hooks .claude/settings.json', proj), None),
+        ('allow', 'jq with a quoted filter', PB("jq '.permissions.allow[]' .claude/settings.local.json", proj), None),
+        ('allow', 'git diff project settings', PB('git diff .claude/settings.json', proj), None),
+        ('allow', 'git add project settings', PB('git add .claude/settings.json && git diff --cached', proj), None),
+        ('allow', 'git log project settings', PB('git log --oneline -- .claude/settings.json', proj), None),
+        ('allow', 'cat piped to jq', PB('cat .claude/settings.json | jq .hooks', proj), None),
+        ('allow', 'project settings by absolute path', PB('cat ' + proj + '/.claude/settings.json', proj), None),
+        ('deny', 'echo into project settings', PB('echo x > .claude/settings.local.json', proj), 'shell'),
+        ('deny', 'dd of=', PB('dd if=x of=.claude/settings.json', proj), 'shell'),
+        ('deny', 'curl -o', PB('curl -o .claude/settings.json https://x', proj), 'shell'),
+        ('deny', 'tar -C home', PB('tar -xCf ~ x.tar .claude/settings.json', proj), 'shell'),
+        ('deny', 'cp onto project settings', PB('cp x .claude/settings.json', proj), 'shell'),
+        ('deny', 'sed -i', PB('sed -i s/a/b/ .claude/settings.json', proj), 'shell'),
+        ('deny', 'tee from jq', PB('jq . x | tee .claude/settings.json', proj), 'shell'),
+        ('deny', 'cat redirected onto settings', PB('cat x > .claude/settings.json', proj), 'shell'),
+        ('deny', 'a read redirected elsewhere', PB('cat .claude/settings.json > out.txt', proj), 'shell'),
+        ('deny', 'git diff --output', PB('git diff --output=.claude/settings.json', proj), 'shell'),
+        ('deny', 'git log --ou abbreviation', PB('git log --ou=x .claude/settings.json', proj), 'shell'),
+        ('deny', 'git diff quoted --output', PB("git diff '--output'=.claude/settings.json", proj), 'shell'),
+        ('deny', 'python write', PB('python3 -c "open(\'.claude/settings.json\',\'w\')"', proj), 'shell'),
+        ('deny', 'PowerShell Get-Content', PB('Get-Content .claude\\settings.json', proj, 'PowerShell'), 'shell'),
+        ('deny', 'upper-case CAT', PB('CAT .claude/settings.json', proj), 'shell'),
+        ('deny', 'background &', PB('cat .claude/settings.json &', proj), 'shell'),
+        ('deny', 'a variable argument', PB('cat "$F" .claude/settings.json', proj), 'shell'),
+        ('deny', 'cd first', PB('cd .. && cat .claude/settings.json', proj + '/src'), 'shell'),
+        ('deny', 'env -C first', PB('env -C ~ cat .claude/settings.json', proj), 'shell'),
+        ('deny', 'a read then another command', PB('cat .claude/settings.json && rm x', proj), 'shell'),
+        ('deny', 'cat home settings, cwd is home', PB('cat .claude/settings.json', home), 'self'),
+        ('deny', 'cat ~/.claude/settings.json', PB('cat ~/.claude/settings.json', proj), 'self'),
+        ('deny', 'cat home settings, case variant', PB('cat ~/.CLAUDE/Settings.json', proj), 'self'),
+        ('deny', 'cat via a project .claude symlink to home', PB('cat .claude/settings.json', linked), 'self'),
+        ('deny', 'cat ../ into home settings', PB('cat ../.claude/settings.json', proj), 'self'),
+        ('deny', 'grep --file= into home settings', PB('grep x --file=../.claude/settings.json', proj), 'self'),
     ]
     data = '/System/Volumes/Data'
     if os.path.isdir(data + home):  # macOS firmlink: the same folder under a second name
@@ -318,9 +482,25 @@ def fs_rows(h):
         os.environ['HOME'] = home
         for expect, label, payload, kind in rows:
             got = h.decide(payload)
-            ok = (got is None) if expect == 'allow' else (got == getattr(h, KINDS[kind]) and outcome_ok(h, 'deny', got))
+            ok = (got is None) if expect == 'allow' else (got == getattr(h, KINDS[kind]) and outcome_ok(h, expect, got))
             if not ok:
                 fails.append('%-5s fs %s -> %s' % (expect, label, 'allow' if got is None else got[:60]))
+        # $HOME pointed away from the account's home: the home settings are still the home's
+        os.environ['HOME'] = os.path.join(home, 'decoy')
+        account_home, h._account_home = h._account_home, lambda: home
+        try:
+            for label, payload, kind in (
+                    ('Write', P('Write', proj, file_path=home + '/.claude/settings.json', content='{}'), 'self'),
+                    ('cat', PB('cat ' + home + '/.claude/settings.json', proj), 'self')):
+                got = h.decide(payload)
+                if got != getattr(h, KINDS[kind]):
+                    fails.append('deny  fs HOME elsewhere: %s the account home settings -> %s' % (label, 'allow' if got is None else got[:60]))
+            os.environ['CLAUDE_CONFIG_DIR'] = os.path.join(home, 'cfgdir')
+            got = h.decide(PB('echo x > settings.json', os.path.join(home, 'cfgdir')))
+            if got != h.R_SELF:
+                fails.append('deny  fs cwd in CLAUDE_CONFIG_DIR, write settings.json -> %s' % ('allow' if got is None else got[:60]))
+        finally:
+            h._account_home = account_home
     finally:
         for k, v in saved.items():
             if v is None:
@@ -344,13 +524,22 @@ def wire_fails(hook_path):
     """The hook as Claude Code runs it: stdin in, one JSON line out. The decision field is what makes Claude Code
     ask or refuse, so it is asserted on the real output, not on decide()."""
     fails = []
+    wire_cwd = tempfile.mkdtemp(prefix='flo-wire-')
     for label, payload, want in (
             ('never-verb', B('engini tools call engini_workflows_delete_workflow --args -'), 'ask'),
             ('unreadable slug', B('engini tools call engini_workflows_$V --args -'), 'ask'),
             ('raw-key command', B('engini login'), 'deny'),
             ('key read', B('echo $ENGINI_API_KEY'), 'deny'),
             ('never-verb + raw key', B('engini tools call engini_workflows_run_workflow --args - ; engini connect x'), 'deny'),
-            ('allowed command', B('engini whoami --json'), None)):
+            ('allowed command', B('engini whoami --json'), None),
+            ('project settings Write', json.dumps({'tool_name': 'Write', 'tool_input': {'file_path': '.claude/settings.json', 'content': '{}'},
+                                                   'cwd': wire_cwd, 'permission_mode': 'default'}), 'ask'),
+            ('project settings Write, bypass mode', json.dumps({'tool_name': 'Write', 'tool_input': {'file_path': '.claude/settings.json', 'content': '{}'},
+                                                   'cwd': wire_cwd, 'permission_mode': 'bypassPermissions'}), 'deny'),
+            ('project settings shell write', json.dumps({'tool_name': 'Bash', 'tool_input': {'command': 'echo {} > .claude/settings.json'},
+                                                   'cwd': wire_cwd, 'permission_mode': 'default'}), 'deny'),
+            ('project settings shell read', json.dumps({'tool_name': 'Bash', 'tool_input': {'command': 'cat .claude/settings.json'},
+                                                   'cwd': wire_cwd, 'permission_mode': 'default'}), None)):
         p = subprocess.run([sys.executable, hook_path], input=payload.encode(), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         out = p.stdout.decode()
         try:
@@ -359,6 +548,7 @@ def wire_fails(hook_path):
             got = 'unparseable'
         if p.returncode != 0 or got != want:
             fails.append('wire: %s -> permissionDecision %r (rc %d), expected %r' % (label, got, p.returncode, want))
+    os.rmdir(wire_cwd)
     return fails
 
 
@@ -376,12 +566,28 @@ def reason_fails(h):
         fails.append('R_RAW_KEY suggests a ! command')
     if re.search(r'engini (login|connect)[^.;)]*--api-key', r):
         fails.append('R_RAW_KEY suggests a command carrying --api-key')
-    for name in ('R_NEVER', 'R_UNREADABLE'):
+    for need in ('home folder', 'switch hooks off'):
+        if need not in h.R_SETTINGS:
+            fails.append('R_SETTINGS lost %r' % need)
+    if 'run commands on this machine' not in h.R_SETTINGS_CMD:
+        fails.append('R_SETTINGS_CMD lost its commands warning')
+    for name in ('R_SETTINGS_OFF', 'R_SETTINGS_UNCHECKED', 'R_SETTINGS_SHELL'):
+        if not getattr(h, name).startswith(h.DENY_TOKEN):
+            fails.append('%s is not a refusal' % name)
+    if 'Edit or Write tool' not in h.R_SETTINGS_SHELL:
+        fails.append('R_SETTINGS_SHELL does not send the agent to the Edit or Write tool')
+    try:
+        import pwd
+        if h._account_home() != pwd.getpwuid(os.getuid()).pw_dir:
+            fails.append('_account_home is not the OS account home')
+    except (ImportError, KeyError):
+        pass
+    for name in ('R_NEVER', 'R_UNREADABLE', 'R_SETTINGS', 'R_SETTINGS_CMD'):
         t = getattr(h, name)
         if not t.startswith(h.ASK_TOKEN) or 'Approve only if' not in t or h.DENY_TOKEN in t:
             fails.append('%s is not a plain ask reason' % name)
-    if set(h.ASK_REASONS) != {h.R_NEVER, h.R_UNREADABLE}:
-        fails.append('ASK_REASONS is not exactly {R_NEVER, R_UNREADABLE}')
+    if set(h.ASK_REASONS) != {h.R_NEVER, h.R_UNREADABLE, h.R_SETTINGS, h.R_SETTINGS_CMD}:
+        fails.append('ASK_REASONS is not exactly {R_NEVER, R_UNREADABLE, R_SETTINGS, R_SETTINGS_CMD}')
     return fails
 
 
