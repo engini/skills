@@ -96,8 +96,8 @@ The six runtime caveats the builder cannot fix - say each one in the proposal wh
   variables and steps before the loop: set a variable inside `do` and test that.
 - **A plan-built Sort & Filter compares values as text**: a numeric or date filter or sort may not do what it says
   until the user picks the data object on the step in the designer.
-- **A Parse JSON `sample` is stored in clear text with the workflow**: invent it from the field names, never paste a
-  real record the user shows you or a run's data.
+- **A Parse JSON `sample` (and a webhook trigger's `sample`) is stored in clear text with the workflow**: invent it from
+  the field names, never paste a real record the user shows you or a run's data.
 - **`onFailure` creates a failure path but cannot move or delete one**: changing an existing failure path stays a
   designer action.
 - **A table automation is turned on only in the Engini app** (the table's Automations tab, or the designer): Flo's

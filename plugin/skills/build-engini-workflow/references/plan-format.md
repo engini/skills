@@ -76,7 +76,7 @@ The server is the source of truth: when this file and the live tool output (`get
 | `ref` | `opaque` only | the existing StepNo it keeps; its key must be `s{ref}` |
 | `filters` / `top` / `sorts` | list `action` | see §1b; only when the tool's schema `query` offers them |
 | `advancedFilter` / `offset` | Sort & Filter only | see §1g (`QUERY_OPTION_NOT_ALLOWED` on any other tool) |
-| `sample` / `mapDictionary` | Parse JSON only | see §1g (`PARSE_JSON_ONLY_MEMBER` on any other tool step; ignored on a block) |
+| `sample` / `mapDictionary` | `sample`: Parse JSON and the built-in webhook trigger; `mapDictionary`: Parse JSON only | see §1g and §1a.1 (`PARSE_JSON_ONLY_MEMBER` on any other tool step; ignored on a block) |
 | `subItems` | `action` with tables | see §1c; only the tables the tool's schema `subItems` lists |
 | `value` / `valueTypes` | `init_variable` only | an object/array variable as a JSON tree, see §1f (`MANUAL_VALUE_NOT_ALLOWED` on any other type) |
 | `model` / `memory` / `tools` | `ai_agent` only | the AI agent's LLM, chat memory and connector-action tools, see §1e (`AI_AGENT_NOT_ALLOWED` on any other type) |
@@ -108,6 +108,28 @@ schedule in the designer. Webhook triggers don't take one:
 - Omitting `schedule` on an edit keeps the stored one. A schedule trigger created with no `schedule` gets a warning
   and never fires after enable — always send one for a schedule trigger.
 - `schedule` on any other step is an error.
+
+## 1a.1 Webhook trigger
+
+The built-in webhook trigger's output is fixed: `url`, `method`, `headers`, `urlparameters`, `queryparameters` and
+`responsebody`. A JSON or XML request body arrives **already parsed** under `responsebody`, so a later step reads it as
+`{{hook.responsebody.<field>}}` - **a JSON/XML body needs no Parse JSON step**. `{{hook.body}}` does not exist
+(`UNKNOWN_OUTPUT_PATH`, a warning: it still compiles, and then fails at run time).
+
+Give the trigger a `sample` so the builder knows the body's fields. It is a **made-up** body in the shape the caller
+will send - never a real record (it is stored in clear text with the workflow) - and `mapDictionary` is not allowed
+on it. A key with a `-` or a space is written as is:
+
+```json
+{"trigger": {"key": "hook", "tool": "http.Webhook", "connection": "none",
+   "sample": "{\"payload\": {\"data\": {\"first-name\": \"Sample\", \"email\": \"name@example.com\"}}}"},
+ "steps": [{"key": "mail", "tool": "<email action slug>", "connection": "<connection id>",
+   "inputs": {"to": "{{hook.responsebody.payload.data.email}}",
+              "subject": "Hello {{hook.responsebody.payload.data.first-name}}"}}]}
+```
+
+- On an existing trigger, leaving `sample` out keeps the saved schema.
+- Webhook triggers take no `schedule` (§1a).
 
 ## 1b. Filters, top, sorts (list tools)
 
@@ -301,7 +323,7 @@ use, never guess one): give `connection: "none"` and read the schema before use.
  "inputs": {"data": "{{get}}"},
  "subItems": {"properties": {"Total": "{{get.Amount}}", "Customer": "{{get.Name}}"}}}
 {"key": "pj", "tool": "builtin_tools.Parse JSON", "connection": "none",
- "inputs": {"content": "{{hook.body}}"},
+ "inputs": {"content": "{{get.payloadText}}"},
  "sample": "{\"order\": {\"id\": \"A-1\", \"total\": 10.5, \"lines\": [{\"sku\": \"X\", \"qty\": 1}]}}"}
 ```
 
@@ -323,8 +345,9 @@ use, never guess one): give `connection: "none"` and read the schema before use.
   only). Its values get every reference check (`FORWARD_REFERENCE` and the rest). Column names lose their spaces
   (`"Total Amount"` is stored as `TotalAmount`, warning `MAP_ARRAY_KEY_NORMALIZED`): write them without spaces. Two
   names that collide after that are `INVALID_SUBITEM_FIELD`. Later steps read `{{map.<Column>}}` (a list).
-- **Parse JSON** parses `inputs.content` into fields later steps can read as `{{pj.<field>}}`. Its output fields come
-  from `sample`: a **made-up** JSON (or XML) document with the shape `content` will hold. A new step needs one
+- **Parse JSON** parses `inputs.content` (a field that holds JSON *text*, such as an API response or a column; a
+  webhook's request body is already parsed - see §1a.1) into fields later steps can read as `{{pj.<field>}}`. Its
+  output fields come from `sample`: a **made-up** JSON (or XML) document with the shape `content` will hold. A new step needs one
   (`PARSE_JSON_SAMPLE_MISSING`); on an existing step, leaving `sample` out keeps the saved schema. **The sample is
   stored in clear text with the workflow: never paste a real record** - invent the values, keep the field names. At
   most 64 KB and 64 levels deep, no DTD or entity declaration, no markup (`PARSE_JSON_SAMPLE_INVALID`).

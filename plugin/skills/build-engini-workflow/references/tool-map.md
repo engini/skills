@@ -168,7 +168,7 @@ Compiler checks:
 | `MAP_ARRAY_KEY_NORMALIZED` | warning | A Map Array column name had spaces, stored without them: read it as `{{map.TotalAmount}}`, and write names without spaces |
 | `PARSE_JSON_SAMPLE_MISSING` | error | A new Parse JSON step needs a `sample` (so does changing `mapDictionary` when none is saved): a made-up JSON or XML document of the shape it parses - never a real record |
 | `PARSE_JSON_SAMPLE_INVALID` | error | The sample is over 64 KB, over 64 levels deep, unreadable, holds a DTD/entity or markup, has no object, or too many objects/fields: cut it to the fields you read |
-| `PARSE_JSON_ONLY_MEMBER` | error | `sample`/`mapDictionary` only on the built-in Parse JSON tool; raised on any other tool step (on a block they are ignored) |
+| `PARSE_JSON_ONLY_MEMBER` | error | `sample`/`mapDictionary` only on the built-in Parse JSON tool, and `sample` also on the built-in webhook trigger; raised on any other tool step (on a block they are ignored) |
 | `PARSE_JSON_NO_DICTIONARY` | warning | `mapDictionary` is on but the sample has no object whose keys are numbers (ids): the step outputs the raw text or fails. Turn it off, or fix the sample |
 | `ADVANCED_FILTER_OUTSIDE_DATA` | warning | An advanced filter's `field` does not start with the step's `data` reference, so it reads the whole output, the same for every record: write `{{<data ref>.<field>}}` |
 | `SORT_FILTER_UNTYPED` | warning | A designer Sort & Filter's `data` is not another step as a whole (a path such as `{{s2.Lines}}`, an expression), so its filters and sorts compare as text: read the whole step (`{{s2}}`) or tell the user |
