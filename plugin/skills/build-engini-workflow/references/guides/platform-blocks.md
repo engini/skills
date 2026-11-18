@@ -2,7 +2,7 @@
 
 Blocks are typed plan steps with **no `tool`** - the compiler resolves `block.<type>` on the platform built-ins app
 ("Built-in Tools", app slug `builtin_tools`). Read each block's fields and option ids live before use:
-`get_builder_tool_schema` with `kind: "block"` and slug `block.<type>`, or `get_builder_field_options`. The ids below
+`engini workflows schema block.<type> --kind block`, or `engini workflows options`. The ids below
 are the values the platform ships; the live schema wins if they differ.
 
 | `type` | Plan members | Inputs | Verified from |

@@ -2,7 +2,8 @@
 """Flo guard - a Claude Code PreToolUse hook (Python 3.8+).
 
 Asks the user to confirm: the four never-verb `engini tools call` slugs (and any tool name it cannot read, which
-could be one of them). Refuses: the engini commands that take or store a raw API key (the refusal tells the agent to
+could be one of them), and any `engini workflows` / `engini executions` command whose verb is not one Flo builds or
+reads with (the CLI form a never-verb would take) or cannot be read. Refuses: the engini commands that take or store a raw API key (the refusal tells the agent to
 hand the command to the user's own terminal), reads of the engini CLI's stored login or key variables, and edits to
 this hook, the plugins folder or the home agent settings. A change to a project's own
 settings file through Edit/Write is asked about (refused when it touches the guard's own keys); the shell may only read
@@ -25,6 +26,10 @@ DENY_TOKEN = 'FLO-HOOK-DENY'
 ASK_TOKEN = 'FLO-HOOK-ASK'
 NEVER_VERBS = frozenset(['engini_workflows_delete_workflow', 'engini_workflows_enable_or_disable_workflow', 'engini_workflows_rerun_execution', 'engini_workflows_run_workflow'])
 CALL_VALUE_FLAGS = frozenset(['--args', '--connection', '--file', '--llm', '--max-bytes', '--tool-call-id', '--toolset'])
+CLI_KNOWN = {'executions': frozenset(['data', 'get', 'help', 'list', 'log']), 'workflows': frozenset(['columns', 'compile', 'connections', 'create', 'help', 'options', 'plan', 'schema', 'search', 'tables', 'update'])}
+CLI_STDIN_VERBS = frozenset(['compile', 'create', 'update'])
+CLI_STDIN_VALUE_FLAGS = frozenset(['--base-workflow-id', '--expected-revision-id', '--file', '--folder-id'])
+CLI_STDIN_BOOL_FLAGS = frozenset(['--dry-run', '--json', '--quiet'])
 RAW_KEY_COMMANDS = (('connect',), ('connections', 'auth-providers', 'create'), ('connections', 'auth-providers', 'update'), ('connections', 'create'), ('connections', 'delete'), ('connections', 'update'), ('login',))
 RAW_KEY_FLAGS = ('--api-key',)
 KEY_ENV = '(?:ENGINI_API_KEY|ENGINI_API_TOKEN|ENGINI_COMPANY_TOKEN)'
@@ -40,8 +45,8 @@ ASK_MODES = frozenset(['acceptEdits', 'auto', 'default', 'plan'])
 # END GENERATED
 
 # The ASK reasons go to the USER in Claude Code's permission prompt; every DENY reason goes to the agent.
-R_NEVER = ASK_TOKEN + ": never-verb. This engini tool turns on/off, runs, reruns or deletes a workflow, which Flo does only when you asked for exactly that action on that workflow. Approve only if you did."
-R_UNREADABLE = ASK_TOKEN + ": unreadable tool name. The tool name in this engini command is built from a variable, a substitution or a pattern, so it cannot be checked against Flo's never list and could be one that turns on/off, runs, reruns or deletes a workflow. Approve only if you know what it runs."
+R_NEVER = ASK_TOKEN + ": never-verb. This engini tool or command turns on/off, runs, reruns or deletes a workflow (or is an engini workflows/executions command Flo does not build or read with, which could), which Flo does only when you asked for exactly that action on that workflow. Approve only if you did."
+R_UNREADABLE = ASK_TOKEN + ": unreadable tool name. The tool or command name in this engini command is built from a variable, a substitution or a pattern, so it cannot be checked against Flo's never list and could be one that turns on/off, runs, reruns or deletes a workflow. Approve only if you know what it runs."
 R_RAW_KEY = DENY_TOKEN + ": raw-key command. This engini command takes or stores an API key (connect, login, connections create/update/delete, auth-providers create/update, --api-key). Do not run it and do not ask the user to paste a key into the chat. Stop and tell the user to run the command in their OWN terminal, outside Claude Code and Codex - not with the ! prefix: in Claude Code's ! mode the input is not a terminal, so the CLI cannot hide the key. Give the exact command with no key in it (for example: engini login, or engini connect engini_workflows and choose auth method 1, x-api-key), never --api-key or a key in the arguments or environment, and ask them to tell you when it is done."
 R_SETTINGS = ASK_TOKEN + ": project settings. This changes a settings file in this project's .claude folder. A project's settings file can switch hooks off, this guard included, or change what Claude may run without asking you. Approve only if you asked for this change and the path is your project's own .claude folder, not the one in your home folder."
 R_SETTINGS_CMD = ASK_TOKEN + ": project settings that run commands. This change adds, changes or removes hooks, a status line, a credential helper or environment variables in a project's .claude settings file. Those run commands on this machine, with your permissions, in every later session in this project, without asking you again. Approve only if you asked for exactly this change and have read every command in it."
@@ -59,6 +64,7 @@ SEARCH_TOOLS = ('Grep', 'Glob')
 SHELL_TOOLS = ('Bash', 'PowerShell')
 MAX_DEPTH = 24
 SLUG_SHAPE = re.compile(r'[A-Za-z0-9_-]+\Z')
+ID_SHAPE = re.compile(r'[A-Za-z0-9-]+\Z')
 REDIRECT = re.compile(r'\d*(?:<<<|<<|>>|>\||[<>])')
 FLO_HEREDOC = re.compile(r"<<'([A-Za-z_]+)'[ \t]*\Z")
 PLAIN_PREFIX = re.compile(r'[A-Za-z0-9_@./:=, \t-]*\Z')
@@ -232,6 +238,38 @@ def judge_named(seg):
     return None
 
 
+def judge_cli(seg):
+    """Family 1c: the CLI's own workflow command groups. `engini workflows|executions <verb>` asks unless the verb is
+    one Flo builds or reads with (a later CLI may add a run, enable or delete there); a verb, or a group word, built
+    from a variable or a substitution asks too."""
+    blob = ' '.join(seg).lower()
+    if 'engini' not in blob and 'cli.js' not in blob:
+        return None
+    for k, tok in enumerate(seg):
+        if not _is_cli(tok):
+            continue
+        words, skip = [], False
+        for t in seg[k + 1:]:
+            if skip:
+                skip = False
+            elif REDIRECT.match(t):
+                skip = REDIRECT.fullmatch(t) is not None
+            elif not t.startswith('-'):
+                words.append(t)
+        if not words:
+            continue
+        if re.search(r'[$`(]', words[0]):
+            return R_UNREADABLE
+        group = words[0].lower()
+        if group not in CLI_KNOWN or len(words) < 2:
+            continue
+        if not SLUG_SHAPE.match(words[1]):
+            return R_UNREADABLE
+        if words[1].lower() not in CLI_KNOWN[group]:
+            return R_NEVER
+    return None
+
+
 def judge_raw_key(seg):
     """Family 2: engini commands that take or store a raw key."""
     blob = ' '.join(seg).lower()
@@ -269,8 +307,9 @@ def judge_env_dump(seg):
 
 def strip_flo_heredoc(text):
     """Drop the body of the ONE shipped heredoc a command may start with, and only that: the opener ends the
-    command's FIRST line, that line is plain words, and the heredoc's reader is the engini CLI itself (or
-    `shasum -a 256` / `sha256sum` for the proposal fingerprint). The body is plan JSON, not commands. Anything
+    command's FIRST line, that line is plain words, and the heredoc's reader is the engini CLI itself - `tools call
+    <slug> --args -`, or `workflows compile|create|update ... --file -` - (or `shasum -a 256` / `sha256sum` for the
+    proposal fingerprint). The body is plan JSON, not commands. Anything
     else - an opener on a later line, a quote, `#`, `$` or `;` before it, `sh -s`/`bash -s` reading it - is left in
     and scanned like code (fail closed). Works on RAW lines: in a quoted heredoc bash ends the body at the first line
     equal to the delimiter and does not join a trailing backslash, so continuations are joined only afterwards."""
@@ -310,7 +349,38 @@ def _shipped_start(prefix):
             args_stdin = any(seg[x] == '--args' and seg[x + 1] == '-' for x in range(k, len(seg) - 1)) or '--args=-' in seg
             return (_cli_invocation(seg[:k]) and args_stdin and bool(cands) and judge_call(seg) is None
                     and all(SLUG_SHAPE.match(c) and c.lower() not in NEVER_VERBS for c in cands))
+        if seg[k] == 'workflows' and seg[k + 1] in CLI_STDIN_VERBS:
+            return _cli_invocation(seg[:k]) and _plan_stdin(seg[k + 1], seg[k + 2:])
     return False
+
+
+def _plan_stdin(verb, rest):
+    """`engini workflows compile|create|update` reading its plan from stdin and nothing else: `--file -`, the known
+    value flags with id-shaped values, the boolean output flags, and for `update` exactly one workflow id."""
+    stdin, ids, i = False, 0, 0
+    while i < len(rest):
+        t = rest[i]
+        if t == '--file=-':
+            stdin = True
+        elif t in CLI_STDIN_VALUE_FLAGS:
+            if i + 1 >= len(rest):
+                return False
+            v = rest[i + 1]
+            if t == '--file':
+                if v != '-':
+                    return False
+                stdin = True
+            elif not ID_SHAPE.match(v):
+                return False
+            i += 1
+        elif t in CLI_STDIN_BOOL_FLAGS:
+            pass
+        elif verb == 'update' and not ids and ID_SHAPE.match(t) and not t.startswith('-'):
+            ids = 1
+        else:
+            return False
+        i += 1
+    return stdin and (verb != 'update' or ids == 1)
 
 
 def judge_shell(cmd, ps, cwd='.'):
@@ -333,7 +403,7 @@ def judge_shell(cmd, ps, cwd='.'):
         return R_KEY_READ
     ask = None
     for seg in segments(text, ps):
-        for judge in (judge_call, judge_named, judge_raw_key, judge_env_dump):
+        for judge in (judge_call, judge_named, judge_cli, judge_raw_key, judge_env_dump):
             reason = judge(seg)
             if reason in ASK_REASONS:
                 ask = ask or reason   # keep looking: a refusal in a later segment beats a question

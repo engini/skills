@@ -4,15 +4,16 @@ Flo is an agent for **Claude Code** and **Codex**. You describe a workflow ("whe
 Slack"); Flo designs it, dry-runs it against your own Engini account, shows you a proposal, and creates it **only
 after you approve** - always **turned off**. You finish and turn it on in the Engini designer.
 
-Flo works through the `engini` command-line tool, on your own login and your own API-key connection. It does
-nothing your key could not do by hand - which is also the honest limit of every safety measure below.
+Flo works through the `engini` command-line tool, on your own login (a workspace-scoped API key): every build step
+is an `engini workflows` command run as that login. It does nothing your key could not do by hand - which is also the
+honest limit of every safety measure below.
 
 ## Before you start
 
 | You need | Version | Why |
 |---|---|---|
 | An Engini account and a **workspace-scoped Developer API key** | - | Flo can only write with a key scoped to one workspace and environment. Ask for a dedicated, least-privilege key: a key carries its creator's whole permission set |
-| The Engini CLI: `npm i -g @engini/cli` | **0.29.0 or later** | every Flo call goes through it |
+| The Engini CLI: `npm i -g @engini/cli` | **0.30.0 or later** | every Flo call goes through it (`engini workflows` arrived in 0.30.0) |
 | Claude Code | **2.1.316 or later** (the version this release was tested on) | |
 | Python | **3.8 or later**, as `python3` or `python` | Claude Code only: runs Flo's guard hook (below) |
 | Codex | supported | see "Codex" below |
@@ -74,12 +75,16 @@ prompt, that is a real delete on your account.
 
 ## Connect Engini (in your own terminal)
 
-1. `engini login` - interactive. Never `engini login --api-key ...`: arguments end up in your shell history and in
-   the process list.
-2. `engini connect engini_workflows` - choose **auth method 1 (`x-api-key`)** and paste your workspace-scoped key.
-   Any other auth method fails every builder call with `403 API_KEY_REQUIRED`.
+1. `engini login` - interactive, with your **workspace-scoped** Developer API key. Never `engini login --api-key
+   ...`: arguments end up in your shell history and in the process list. Flo builds in whatever account, workspace
+   and environment this login is scoped to (`engini whoami` shows it); to build somewhere else, log in again with
+   that workspace's key.
+2. Optional: `engini connect engini_workflows` - choose **auth method 1 (`x-api-key`)** and paste a key for the same
+   workspace. Flo needs this connection only to find a folder or an existing workflow **by name** (the CLI has no
+   list for those yet) and for a turn-on, run, rerun or delete you explicitly ask for. Without it, Flo creates the
+   workflow outside a folder, and for an edit asks you for the workflow's id from its designer address.
 
-Run both yourself **in your own terminal, outside Claude Code or Codex** - not with Claude Code's `!` prefix. The CLI
+Run them yourself **in your own terminal, outside Claude Code or Codex** - not with Claude Code's `!` prefix. The CLI
 hides the key you type only when its input is a terminal, and in Claude Code's `!` mode it is not (`process.stdin.isTTY`
 is false there), so a key typed that way would show. Flo's guard refuses to let the agent run these commands, because
 they put a raw key in the agent's hands; when Flo needs one done he stops and gives you the command to run in your own
@@ -92,11 +97,11 @@ too.
 Ask for a workflow in plain words - "Build a workflow in my Engini account: every weekday at 8:00, fetch
 https://example.com/report and email it to me". Flo:
 
-1. checks the CLI version, your login (account / workspace / environment) and your `engini_workflows` connection;
-2. compiles a throwaway plan to confirm which workspace and environment your connection writes to;
+1. checks the CLI version and your login (account / workspace / environment);
+2. compiles a throwaway plan to confirm which workspace and environment your login writes to;
 3. searches the catalog, reads each step's schema and dropdown options, and compiles the plan until it is clean;
-4. stops and shows you a **proposal table** - every step, the target workspace and environment the compile echoed,
-   the connection id and a fingerprint;
+4. stops and shows you a **proposal table** - every step, the target account, the workspace and environment the
+   compile echoed, and a fingerprint;
 5. creates the workflow **only** when you approve that proposal in the conversation, quoting its fingerprint. The
    workflow is created **turned off**.
 
@@ -130,7 +135,10 @@ Four layers stand between them and your account. Only the last one is a boundary
 2. **Flo's guard hook - Claude Code only.** Installed with the plugin and live at once. It **asks you to confirm** an
    `engini tools call` naming any of the four verbs listed above, in any argument order and through quoting, case
    and `bash -c` wrappers; a tool name it cannot read (built from a shell variable or a substitution, such as
-   `engini_workflows_$V`) is asked about too, because it could be one of the four. A question is a prompt, not a
+   `engini_workflows_$V`) is asked about too, because it could be one of the four. It also asks about any `engini
+   workflows` or `engini executions` command other than the ones Flo builds and reads with (`search`, `schema`,
+   `options`, `tables`, `columns`, `connections`, `compile`, `plan`, `create`, `update`; `executions list|get|log|data`)
+   - the form a turn-on, run or delete would take in the CLI - and about one whose name it cannot read. A question is a prompt, not a
    block: it works only while your permission mode lets the prompt reach you. It **refuses** `engini connect`,
    `engini login`, `engini connections create|update|delete` and `engini connections auth-providers create|update`
    and any `--api-key` when the agent runs them, and tells the agent to hand you the command to run in your own
@@ -138,10 +146,10 @@ Four layers stand between them and your account. Only the last one is a boundary
    `ENGINI_COMPANY_TOKEN` variable, or dumping the environment (a presence test `[ -n "$ENGINI_API_KEY" ]` is
    fine); and edits to the hook itself, the plugins folder or your home Claude Code or Codex settings - including
    a command that changes a `.claude` or `.codex` folder itself, a wildcard name or a `.`/`..` step inside one. Read, Write, Edit, Grep and Glob paths are judged as
-   given and again after resolving them against the session's folder and following symlinks. An
-   `engini tools call` with a heredoc is judged as code unless it is Flo's own one-call shape: the `<<'EOF'` opener
-   ends the command's first line and the reader is the `engini` CLI itself (`engini`, `npx @engini/cli` or
-   `npx @engini/cli@<exact version>`).
+   given and again after resolving them against the session's folder and following symlinks. A heredoc is judged
+   as code unless it is one of Flo's own one-call shapes: the `<<'EOF'` opener ends the command's first line and the
+   reader is the `engini` CLI itself (`engini`, `npx @engini/cli` or `npx @engini/cli@<exact version>`) running
+   `tools call <slug> --args -` or `workflows compile|create|update ... --file -`.
 
    **A project's own `.claude` folder.** Read-only commands pass (`ls .claude`, `git add .claude`,
    `grep -rn x .claude`, a `cd` into a folder inside it then `ls`) when every command in the chain only reads and every argument
@@ -188,12 +196,14 @@ approved without you.
 connections.** The guard narrows one literal command form. It is a text matcher, not a sandbox. Deliberately open,
 and tested as open:
 
-- **every other tool**: the guard asks about only the four verbs. Flo's rule against calling other apps' tools (for
+- **every other tool**: the guard asks about only the four verbs and the `engini workflows|executions` commands Flo
+  does not use. Flo's rule against calling other apps' tools (for
   example `slack_send_message`) is an instruction he follows, not something enforced; so is "read execution data
   only when asked". Builder tools Engini adds later run normally too;
 - indirection the guard never sees: `eval "$X"`, `bash -c "$X"`, a shell function, a script file;
 - anything that skips the CLI: a `python -c` against the SDK, or a plain HTTPS call with your key;
-- a tool name that is never in the command text at all, e.g. `xargs engini tools call --args - < slugfile`;
+- a tool or command name that is never in the command text at all, e.g. `xargs engini tools call --args - <
+  slugfile` or `xargs engini workflows < verbfile`;
 - the key file reached through a glob (`cd ~/.config && cat engini/conf*`), a recursive search from a parent
   folder in the shell (`grep -r ... ~/.config`), and a custom `XDG_CONFIG_HOME` folder named by its own path in a
   shell command;
@@ -231,8 +241,8 @@ Codex they are all there is.
 
 - **Allow only `Bash(engini:*)`** and never run Flo with `--dangerously-skip-permissions`. Flo holds a shell and your
   key; this is the widest control by far.
-- The `ask` rules make Claude Code ask **you**, outside the conversation, before every create or update, before each
-  of the four never-verbs and before the key-handling commands (`engini login`, `engini connect`, `engini connections
+- The `ask` rules make Claude Code ask **you**, outside the conversation, before every create or update (`engini
+  workflows create|update`), before each of the four never-verbs and their CLI forms, and before the key-handling commands (`engini login`, `engini connect`, `engini connections
   create|update|delete`, `engini connections auth-providers create|update`, `engini login --api-key`) - the approvals
   the model cannot give itself. With Flo's guard installed those last commands are refused outright when the agent
   runs them, so the `ask` rule is what applies when the guard is not installed; in Codex, which has no guard, the rules
@@ -257,10 +267,18 @@ Codex they are all there is.
     "ask": [
       "Bash(engini tools call engini_workflows_create_workflow_from_plan:*)",
       "Bash(engini tools call engini_workflows_update_workflow_from_plan:*)",
+      "Bash(engini workflows create:*)",
+      "Bash(engini workflows update:*)",
       "Bash(engini tools call engini_workflows_delete_workflow:*)",
       "Bash(engini tools call engini_workflows_run_workflow:*)",
       "Bash(engini tools call engini_workflows_enable_or_disable_workflow:*)",
       "Bash(engini tools call engini_workflows_rerun_execution:*)",
+      "Bash(engini workflows delete:*)",
+      "Bash(engini workflows run:*)",
+      "Bash(engini workflows rerun:*)",
+      "Bash(engini workflows enable:*)",
+      "Bash(engini workflows disable:*)",
+      "Bash(engini executions rerun:*)",
       "Bash(engini connect:*)",
       "Bash(engini login:*)",
       "Bash(engini connections create:*)",
@@ -288,10 +306,18 @@ Codex they are all there is.
 # Flo: a prompt before every write, before the four never-verbs and before the raw-key commands (decline those and run them yourself).
 prefix_rule(pattern = ["engini", "tools", "call", "engini_workflows_create_workflow_from_plan"], decision = "prompt")
 prefix_rule(pattern = ["engini", "tools", "call", "engini_workflows_update_workflow_from_plan"], decision = "prompt")
+prefix_rule(pattern = ["engini", "workflows", "create"], decision = "prompt")
+prefix_rule(pattern = ["engini", "workflows", "update"], decision = "prompt")
 prefix_rule(pattern = ["engini", "tools", "call", "engini_workflows_delete_workflow"], decision = "prompt", justification = "Flo calls this only when you asked for exactly this action on this workflow")
 prefix_rule(pattern = ["engini", "tools", "call", "engini_workflows_run_workflow"], decision = "prompt", justification = "Flo calls this only when you asked for exactly this action on this workflow")
 prefix_rule(pattern = ["engini", "tools", "call", "engini_workflows_enable_or_disable_workflow"], decision = "prompt", justification = "Flo calls this only when you asked for exactly this action on this workflow")
 prefix_rule(pattern = ["engini", "tools", "call", "engini_workflows_rerun_execution"], decision = "prompt", justification = "Flo calls this only when you asked for exactly this action on this workflow")
+prefix_rule(pattern = ["engini", "workflows", "delete"], decision = "prompt", justification = "Flo calls this only when you asked for exactly this action on this workflow")
+prefix_rule(pattern = ["engini", "workflows", "run"], decision = "prompt", justification = "Flo calls this only when you asked for exactly this action on this workflow")
+prefix_rule(pattern = ["engini", "workflows", "rerun"], decision = "prompt", justification = "Flo calls this only when you asked for exactly this action on this workflow")
+prefix_rule(pattern = ["engini", "workflows", "enable"], decision = "prompt", justification = "Flo calls this only when you asked for exactly this action on this workflow")
+prefix_rule(pattern = ["engini", "workflows", "disable"], decision = "prompt", justification = "Flo calls this only when you asked for exactly this action on this workflow")
+prefix_rule(pattern = ["engini", "executions", "rerun"], decision = "prompt", justification = "Flo calls this only when you asked for exactly this action on this workflow")
 prefix_rule(pattern = ["engini", "connect"], decision = "prompt", justification = "takes or stores a raw API key - decline this, run it in your own terminal outside Codex, never paste the key into the chat")
 prefix_rule(pattern = ["engini", "login"], decision = "prompt", justification = "takes or stores a raw API key - decline this, run it in your own terminal outside Codex, never paste the key into the chat")
 prefix_rule(pattern = ["engini", "connections", "create"], decision = "prompt", justification = "takes or stores a raw API key - decline this, run it in your own terminal outside Codex, never paste the key into the chat")

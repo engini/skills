@@ -5,9 +5,10 @@
 
 Each row is one assertion with concrete input and one of three outcomes: allow, ask (the user is asked to confirm)
 or deny (the agent is refused). Exit 1 on any failure, naming the row.
-Also: the hook's stdout carries the right permissionDecision, a 2 MB input returns in under 1 s, and against
+Also: the hook's stdout carries the right permissionDecision, a 2 MB input returns in under 1 s, against
 tools/contract/snapshot.json `tools call` asks for exactly the never-verbs in tools/rules.json and is allowed for
-every other live slug.
+every other live slug, and every `engini workflows|executions` command in rules.json's cli_never_commands asks while
+every verb in cli_known_verbs passes.
 """
 import importlib.util
 import json
@@ -44,6 +45,16 @@ PLAN_BODY = ('{"plan":{"name":"Leads","notes":"never engini tools call engini_wo
 SHIPPED = ("engini tools call engini_workflows_create_workflow_from_plan --args - --connection 7 --max-bytes 0 <<'EOF'\n"
            + PLAN_BODY + "\nEOF")
 NV = 'engini_workflows_delete_workflow'
+# the CLI's plan shape: a bare plan on stdin (`--file -`); the body names never-verbs in both forms and a $( )
+CLI_PLAN = ('{"name":"Leads","notes":"never engini tools call engini_workflows_delete_workflow; never engini workflows '
+            'delete 4; run $(x) and connect later","trigger":{"key":"start","tool":"builtin_tools.Button"},"steps":[]}')
+CLI_SHIPPED = "engini workflows create --file - --folder-id 7 <<'EOF'\n" + CLI_PLAN + "\nEOF"
+
+
+def CH(first_line):
+    """A heredoc whose first line is `first_line` and whose body is the CLI plan."""
+    return B(first_line + " <<'EOF'\n" + CLI_PLAN + "\nEOF")
+
 
 # (expect: allow|ask|deny, family, label, payload, reason-kind or None). reason-kind: never | unreadable | rawkey | keyread | self | bad
 ROWS = [
@@ -97,6 +108,40 @@ ROWS = [
     ('ask', '1b', 'cover: quoted tools get', B('engini tools call --connection 3 engini_workflows_delete_workflow --note "engini tools get engini_workflows_delete_workflow"'), 'never'),
     ('ask', '1b', 'cover: split tools/get', B('engini tools call --connection tools --toolset get engini_workflows_delete_workflow'), 'never'),
     ('ask', '1b', 'cover: tools get exempts i+2 only', B('engini tools get engini_workflows_get_workflow engini_workflows_delete_workflow'), 'never'),
+    # ---- family 1c: the CLI's own workflow commands - a verb Flo does not build or read with asks
+    ('ask', '1c', 'workflows delete', B('engini workflows delete 42'), 'never'),
+    ('ask', '1c', 'workflows run', B('engini workflows run 42'), 'never'),
+    ('ask', '1c', 'workflows enable', B('engini workflows enable 42'), 'never'),
+    ('ask', '1c', 'executions rerun', B('engini executions rerun 9'), 'never'),
+    ('ask', '1c', 'an unknown workflows verb', B('engini workflows purge 42'), 'never'),
+    ('ask', '1c', 'an unknown executions verb', B('engini executions replay 9'), 'never'),
+    ('ask', '1c', 'flag before the group', B('engini --json workflows delete 42'), 'never'),
+    ('ask', '1c', 'npx', B('npx @engini/cli workflows delete 42'), 'never'),
+    ('ask', '1c', 'node cli.js', B('node ./node_modules/@engini/cli/dist/cli.js workflows run 42'), 'never'),
+    ('ask', '1c', 'bash -c', B('bash -c "engini workflows run 42"'), 'never'),
+    ('ask', '1c', 'upper case', B('engini workflows DELETE 42'), 'never'),
+    ('ask', '1c', "w''orkflows del''ete", B("engini w''orkflows del''ete 42"), 'never'),
+    ('ask', '1c', 'second line', B('engini workflows search x\nengini workflows delete 4'), 'never'),
+    ('ask', '1c', 'after a build command', B('engini workflows plan 4 && engini workflows delete 4'), 'never'),
+    ('ask', '1c', 'redirect before the verb', B('engini workflows >/dev/null delete 4'), 'never'),
+    ('ask', '1c', 'stdin redirect after', B('engini workflows delete 4 < /dev/null'), 'never'),
+    ('ask', '1c', 'glued redirect', B('engini workflows delete>/dev/null 4'), 'unreadable'),
+    ('ask', '1c', 'variable verb', B('V=delete; engini workflows $V 42'), 'unreadable'),
+    ('ask', '1c', 'substituted verb', B('engini workflows "$(echo delete)" 42'), 'unreadable'),
+    ('ask', '1c', 'variable group', B('G=workflows; engini $G delete 42'), 'unreadable'),
+    # the CLI plan heredoc is stripped in its one shipped shape only; every other shape scans the body as code
+    ('ask', '1c', 'CLI shape, plan from a file', CH('engini workflows compile --file plan.json'), 'never'),
+    ('ask', '1c', 'CLI shape, no --file -', CH('engini workflows compile'), 'never'),
+    ('ask', '1c', 'CLI shape, search reads no plan', CH('engini workflows search --file -'), 'never'),
+    ('ask', '1c', 'CLI shape, read by sh -s', CH('sh -s workflows compile --file -'), 'never'),
+    ('ask', '1c', 'CLI shape, env prefix', CH('env engini workflows compile --file -'), 'never'),
+    ('ask', '1c', 'CLI shape, variable flag value', CH('engini workflows compile --file - --base-workflow-id $X'), 'never'),
+    ('ask', '1c', 'CLI shape, unknown flag', CH('engini workflows create --file - --connection 7'), 'never'),
+    ('ask', '1c', 'CLI update, no workflow id', CH('engini workflows update --file - --expected-revision-id 3'), 'never'),
+    ('ask', '1c', 'CLI update, two workflow ids', CH('engini workflows update 4 5 --file -'), 'never'),
+    ('ask', '1c', 'CLI create with a workflow id', CH('engini workflows create 4 --file -'), 'never'),
+    ('ask', '1c', 'CLI shape, not on line 1', B("engini whoami --json\n" + CLI_SHIPPED), 'never'),
+    ('ask', '1c', 'CLI shape, npx alias spec', B(CLI_SHIPPED.replace('engini workflows', 'npx @engini/cli@npm:zx workflows', 1)), 'never'),
     # ---- family 2: raw-key commands
     ('deny', '2', 'connect --field', B('engini connect engini_workflows --field api_key=eng_x'), 'rawkey'),
     ('deny', '2', 'connections update', B('engini connections update 3 --field api_key=x'), 'rawkey'),
@@ -176,6 +221,8 @@ ROWS = [
     ('deny', '2', 'unreadable slug then connect', B('engini tools call engini_workflows_$V --args - ; engini connect engini_workflows'), 'rawkey'),
     ('deny', '2', 'never-verb with --api-key', B('engini tools call engini_workflows_run_workflow --api-key x'), 'rawkey'),
     ('deny', '4', 'never-verb and a key read', B('echo $ENGINI_API_KEY; engini tools call engini_workflows_delete_workflow --args -'), 'keyread'),
+    ('deny', '2', 'CLI never-verb then login', B('engini workflows delete 4 ; engini login'), 'rawkey'),
+    ('deny', '2', 'CLI plan heredoc then connect', B(CLI_SHIPPED + '\nengini connect engini_workflows'), 'rawkey'),
     ('allow', '5', 'ls .claude', B('ls .claude'), None),
     ('allow', '5', 'git add .claude', B('git add .claude'), None),
     ('allow', '5', 'ls -R .claude', B('ls -R .claude'), None),
@@ -256,6 +303,30 @@ ROWS = [
     ('allow', '1', 'shipped shape, command after EOF', B(SHIPPED + "\necho done"), None),
     ('allow', '1', 'fingerprint heredoc', B("shasum -a 256 <<'EOF'\nflo-proposal v1\n" + PLAN_BODY + "\nEOF"), None),
     ('allow', '1', 'heredoc commit message', B("git commit -F - <<'EOF'\nDon't break the build\nEOF"), None),
+    # the CLI's build and read commands, as the skill writes them
+    ('allow', '1c', 'workflows search', B("engini workflows search 'send email' --kind action --app gmail --top 10"), None),
+    ('allow', '1c', 'workflows search --table', B('engini workflows search --table 3f2a --kind trigger'), None),
+    ('allow', '1c', 'workflows schema', B('engini workflows schema slack.post_message --kind action --connection 42'), None),
+    ('allow', '1c', 'workflows options', B('engini workflows options slack.post_message --field channel --connection 42 --depends-on team=7'), None),
+    ('allow', '1c', 'workflows tables', B('engini workflows tables'), None),
+    ('allow', '1c', 'workflows columns', B('engini workflows columns 3f2a --trigger tables.Tableonrecordupdated'), None),
+    ('allow', '1c', 'workflows connections', B('engini workflows connections --app gmail'), None),
+    ('allow', '1c', 'workflows plan', B('engini workflows plan 456'), None),
+    ('allow', '1c', 'workflows --help', B('engini workflows --help'), None),
+    ('allow', '1c', 'workflows help create', B('engini workflows help create'), None),
+    ('allow', '1c', 'bare workflows group', B('engini workflows'), None),
+    ('allow', '1c', 'workflows create --schema', B('engini workflows create --schema'), None),
+    ('allow', '1c', 'executions list', B('engini executions list --workflow 123 --status failed --top 20'), None),
+    ('allow', '1c', 'executions data', B('engini executions data 4567 3 --type response'), None),
+    ('allow', '1c', 'CLI shipped compile', CH('engini workflows compile --file -'), None),
+    ('allow', '1c', 'CLI shipped compile of an edit', CH('engini workflows compile --file - --base-workflow-id 456'), None),
+    ('allow', '1c', 'CLI shipped create', B(CLI_SHIPPED), None),
+    ('allow', '1c', 'CLI shipped create, --file=- --json', CH('engini workflows create --file=- --json'), None),
+    ('allow', '1c', 'CLI shipped create --dry-run', CH('engini workflows create --dry-run --file -'), None),
+    ('allow', '1c', 'CLI shipped update', CH('engini workflows update 456 --file - --expected-revision-id 3'), None),
+    ('allow', '1c', 'CLI shipped shape via npx at a version', B(CLI_SHIPPED.replace('engini workflows', 'npx @engini/cli@1.4.0 workflows', 1)), None),
+    ('allow', '1c', 'CLI shipped shape, command after EOF', B(CLI_SHIPPED + '\necho done'), None),
+    ('allow', '1c', 'git log --grep workflows', B('git log --grep "workflows"'), None),
     ('allow', '2', 'connections list', B('engini connections list --json'), None),
     ('allow', '2', 'connections get', B('engini connections get 3 --json'), None),
     ('allow', '2', 'connections list scoped', B('engini connections list --application engini_workflows --json'), None),
@@ -295,6 +366,7 @@ OPEN_ON_PURPOSE = [
     ('bash -c indirection', B('bash -c "$X"')),
     ('shell function', B('f() { eval "$1"; }; f "$CMD"')),
     ('slug from a file via xargs', B('xargs engini tools call --args - < slugfile')),
+    ('CLI verb from a file via xargs', B('xargs engini workflows < verbfile')),
     ('another app tool (only the four never-verbs ask)', B('engini tools call slack_send_message --args -')),
 ]
 
@@ -534,6 +606,8 @@ def wire_fails(hook_path):
             ('key read', B('echo $ENGINI_API_KEY'), 'deny'),
             ('never-verb + raw key', B('engini tools call engini_workflows_run_workflow --args - ; engini connect x'), 'deny'),
             ('allowed command', B('engini whoami --json'), None),
+            ('CLI never-verb', B('engini workflows delete 42'), 'ask'),
+            ('CLI shipped create', B(CLI_SHIPPED), None),
             ('project settings Write', json.dumps({'tool_name': 'Write', 'tool_input': {'file_path': '.claude/settings.json', 'content': '{}'},
                                                    'cwd': wire_cwd, 'permission_mode': 'default'}), 'ask'),
             ('project settings Write, bypass mode', json.dumps({'tool_name': 'Write', 'tool_input': {'file_path': '.claude/settings.json', 'content': '{}'},
@@ -620,7 +694,9 @@ def run(hook_path, quiet=False):
     big = PLAN_BODY[:-2] + ',"pad":"' + ('x y ' * (2 * 1024 * 1024 // 4)) + '"}}'
     # The bar is the shipped shape under 1 s. A 2 MB heredoc the hook may NOT strip is scanned as code, so it
     # gets a looser bar, kept far under the 30 s timeout in plugin/hooks/claude-hooks.json (a timeout fails open).
+    big_cli = CLI_PLAN[:-1] + ',"pad":"' + ('x y ' * (2 * 1024 * 1024 // 4)) + '"}'
     for label, cmd, limit in (('2MB shipped heredoc', SHIPPED.replace(PLAN_BODY, big), 1.0),
+                              ('2MB shipped CLI heredoc', CLI_SHIPPED.replace(CLI_PLAN, big_cli), 1.0),
                               ('2MB unvalidated JSON heredoc', 'cat <<EOF\n' + ('{"k": "v w", "n": [1, 2]} ' * 80000) + '\nEOF', 5.0)):
         t = time.time()
         h.decide(B(cmd))
@@ -629,9 +705,24 @@ def run(hook_path, quiet=False):
             fails.append('%s took %.2fs (>= %.0f s; a hook timeout fails open)' % (label, dt, limit))
         elif not quiet:
             print('timing: %s %.2fs (limit %.0f s)' % (label, dt, limit))
-    # the 21-slug contract snapshot: asked for exactly the never-verbs, allowed for the rest
+    # the CLI groups: every command in rules.json's cli_never_commands asks, every known verb (writes included) passes
     with open(os.path.join(ROOT, 'tools/rules.json'), encoding='utf-8') as f:
-        never = set(json.load(f)['never_verbs'])
+        rules = json.load(f)
+    cli_rows = 0
+    for c in rules['cli_never_commands']:
+        cli_rows += 1
+        if h.decide(B('engini %s 42' % ' '.join(c))) != h.R_NEVER:
+            fails.append('cli never command %s: not asked' % ' '.join(c))
+    for group, verbs in rules['cli_known_verbs'].items():
+        for v in verbs:
+            cli_rows += 1
+            if h.decide(B('engini %s %s 42' % (group, v))) is not None:
+                fails.append('cli known verb %s %s: not allowed' % (group, v))
+    for c in rules['cli_write_ask']:
+        if c[1] not in rules['cli_known_verbs'].get(c[0], []):
+            fails.append('cli write %s is not a known verb (the hook would ask on every write)' % ' '.join(c))
+    # the 21-slug contract snapshot: asked for exactly the never-verbs, allowed for the rest
+    never = set(rules['never_verbs'])
     with open(os.path.join(ROOT, 'tools/contract/snapshot.json'), encoding='utf-8') as f:
         slugs = sorted(json.load(f)['tools'])
     if not never <= set(slugs):
@@ -646,8 +737,8 @@ def run(hook_path, quiet=False):
     if not quiet:
         for line in fails:
             print('FAIL ' + line)
-        print('hook-selftest: %d rows, %d open-on-purpose, %d snapshot slugs, %d failures'
-              % (len(ROWS), len(OPEN_ON_PURPOSE), len(slugs), len(fails)))
+        print('hook-selftest: %d rows, %d open-on-purpose, %d CLI verb rows, %d snapshot slugs, %d failures'
+              % (len(ROWS), len(OPEN_ON_PURPOSE), cli_rows, len(slugs), len(fails)))
     return fails
 
 
