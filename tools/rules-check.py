@@ -5,10 +5,11 @@
 
 - every generated block is current (tools/generate.py --check);
 - the SKILL.md never-verb block sits in the BODY (past the closing ---) and lists exactly tools/rules.json's four;
-- the README settings block asks (never denies) for all four never-verbs and for every raw-key command, keeps the
-  key-read rules as deny (Claude settings JSON parsed), and the Codex rules prompt (never forbid) for the four and
-  for the raw-key commands, whose justification tells the user to decline and run them in their own terminal
-  (Codex has no hook, so these rules are its only layer there);
+- the README settings block asks (never denies) for all four never-verbs, their CLI forms, the two CLI writes and
+  every raw-key command, keeps the key-read rules as deny (Claude settings JSON parsed), and the Codex rules prompt
+  (never forbid) for all of them, the raw-key ones with a justification that tells the user to decline and run them
+  in their own terminal (Codex has no hook, so these rules are its only layer there);
+- tool-map.md section 1 names every `engini workflows|executions <verb>` Flo uses (CLI drift);
 - tool-map.md section 2 and agent-rules.md still name each never-verb, and say Flo calls it only when the user asks;
 - SKILL.md and agent-rules.md tell Flo to hand key-handling commands to the user's own terminal, never to `!`;
 - every HTTP refusal in tool-map.md section 3a has its own TROUBLESHOOTING.md row, matched on the exact
@@ -78,6 +79,14 @@ def main(argv):
             fails.append('README settings block: Codex rules do not prompt for %s' % s)
         if '["engini", "tools", "call", "%s"], decision = "forbidden"' % s in codex:
             fails.append('README settings block: Codex rules forbid %s (it must prompt)' % s)
+    for c in rules['cli_never_commands'] + rules['cli_write_ask']:
+        rule = 'Bash(engini %s:*)' % ' '.join(c)
+        if rule not in ask:
+            fails.append('README settings block: Claude snippet does not ask for engini %s' % ' '.join(c))
+        if rule in deny:
+            fails.append('README settings block: Claude snippet denies engini %s (it must ask)' % ' '.join(c))
+        if 'prefix_rule(pattern = %s, decision = "prompt"' % json.dumps(['engini'] + list(c)) not in codex:
+            fails.append('README settings block: Codex rules do not prompt for engini %s' % ' '.join(c))
     for rule in raw:
         if rule not in ask:
             fails.append('README settings block: Claude snippet does not ask for %s' % rule)
@@ -98,6 +107,11 @@ def main(argv):
             fails.append('README settings block: Claude snippet no longer denies %s' % rule)
 
     tool_map = read(root, SKILL_DIR + '/references/tool-map.md')
+    sec1 = tool_map.split('## 1.', 1)[-1].split('\n## 2.', 1)[0]
+    for group, verbs in rules['cli_known_verbs'].items():
+        for v in verbs:
+            if v != 'help' and '`engini %s %s' % (group, v) not in sec1:
+                fails.append('tool-map.md section 1: no `engini %s %s` command (CLI drift)' % (group, v))
     sec2 = tool_map.split('## 2.', 1)[-1].split('\n## 3.', 1)[0]
     for s in never:
         if not [ln for ln in sec2.split('\n') if s in ln and 'ONLY IF THE USER ASKS' in ln]:

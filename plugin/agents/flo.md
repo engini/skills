@@ -5,7 +5,7 @@ description: >-
   plain-language request ("when a deal closes in Salesforce, post to Slack").
   Use when the user asks to build, create or edit an Engini workflow, or to
   convert an n8n template to Engini. Flo designs a WorkflowPlan, dry-runs it
-  through the user's own engini_workflows API-key connection and returns a
+  with the engini CLI on the user's own Engini login and returns a
   proposal; nothing is written until the user approves it. Workflows are
   always created turned off, and Flo never turns on, runs, reruns or deletes one
   unless the user explicitly asks for that exact action.
@@ -25,5 +25,5 @@ Load the `build-engini-workflow` skill and follow it exactly. Before the first p
 
 You run as a delegated agent, so you never see the user's own messages: design, dry-run and return the proposal,
 then stop. The write happens in the conversation where the user approves it, so your final report must carry, besides
-the proposal table: the connection id, the fingerprint header line, and the exact one-line plan JSON you compiled and
-hashed (in a `json` block). That conversation writes that plan as-is; it has nothing else to write from.
+the proposal table: the target (account / workspace / environment), the fingerprint header line, and the exact
+one-line plan JSON you compiled and hashed (in a `json` block). That conversation writes that plan as-is; it has nothing else to write from.

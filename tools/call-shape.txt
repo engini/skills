@@ -1,24 +1,50 @@
-# The exact `engini tools call` shape the corpus ships. The hook and its self-test match against this.
-# Source: plugin/skills/build-engini-workflow/SKILL.md (top) and references/tool-map.md (top). Every builder call,
-# read or write, uses this one shape.
+# The exact command shapes the corpus ships. The hook and its self-test match against these.
+# Source: plugin/skills/build-engini-workflow/SKILL.md (top) and references/tool-map.md (top, sections 1 and 2).
 
-engini tools call <slug> --args - --connection <connection id> --max-bytes 0 <<'EOF'
+# 1. Builder commands that take a plan (compile, create, update) - the CLI's own `workflows` group, run as the CLI's
+#    login (no connection):
 
-# payload:            heredoc (not a pipe). The JSON arguments are the heredoc body, so they ARE part of the
-#                     command string a PreToolUse hook sees.
+engini workflows compile --file - [--base-workflow-id <id>] <<'EOF'
+engini workflows create --file - [--folder-id <id>] <<'EOF'
+engini workflows update <workflow id> --file - --expected-revision-id <revisionId> <<'EOF'
+
+# payload:            heredoc (not a pipe, not a file). The body is the BARE plan JSON ({name, trigger, steps, ...},
+#                     not {"plan": ...}), so it IS part of the command string a PreToolUse hook sees.
 # delimiter:          always the quoted literal <<'EOF' (no expansion inside the body); exactly one `<<`, never `<<<`.
 # start line:         the FIRST line of the Bash command (one call per command), ends with <<'EOF' - nothing
 #                     follows it on that line (no `&&`, `;`, `|`, redirect), and only plain words precede it.
 #                     The hook leaves any other heredoc in and judges it as code.
-# argument order:     `tools call`, the slug, `--args -`, `--connection <id>`, `--max-bytes 0`, then the heredoc opener.
-# body:               one JSON object (the tool's arguments). Closing line: EOF alone.
-# --max-bytes 0:      on every call - results are never spilled to the CLI's local result cache.
-# no files:           the corpus never writes `--args @file`; a file is a documented last resort (mktemp -d, 0700, trap).
+# flags:              `--file -` (or `--file=-`) always; otherwise only `--folder-id`, `--base-workflow-id`,
+#                     `--expected-revision-id` with an id-shaped value, `--json`, `--quiet`, `--dry-run`, and for
+#                     `update` exactly one workflow id. Any other word keeps the body in (fail closed).
 #
-# Not covered by this shape (the corpus also runs these, none take a payload):
+# The reads of the group take flags only, no payload:
+#   engini workflows search '<text>' --kind <k> [--app <slug>] [--table <id>] [--top <n>]
+#   engini workflows schema <slug> [--kind <k>] [--connection <id>] [--table <id>]
+#   engini workflows options <slug> --field <f> --connection <id> [--kind <k>] [--depends-on <field=value>]
+#   engini workflows tables
+#   engini workflows columns <table id> [--trigger <slug>]
+#   engini workflows connections --app <slug>
+#   engini workflows plan <workflow id>
+#   engini executions list|get|log|data ...        (only when the user asks)
+# Any other `engini workflows|executions <verb>` is asked about (the hook's known-verb list, tools/rules.json).
+
+# 2. The `engini_workflows` tools the CLI has no command for (folder / workflow lookups by name, and the never-verbs
+#    only when the user explicitly asks), through the user's own engini_workflows connection:
+
+engini tools call <slug> --args - --connection <connection id> --max-bytes 0 <<'EOF'
+
+# payload, delimiter, start line: as in 1. The body is one JSON object (the tool's arguments).
+# argument order:     `tools call`, the slug, `--args -`, `--connection <id>`, `--max-bytes 0`, then the heredoc opener.
+# --max-bytes 0:      on every call - results are never spilled to the CLI's local result cache.
+# no files:           the corpus never writes `--args @file` or `--file <path>`; a file is a documented last resort
+#                     (mktemp -d, 0700, trap).
+#
+# Not covered by these shapes (the corpus also runs these, none take a payload):
 #   engini --version
+#   engini workflows --help / engini workflows <verb> --help
 #   engini whoami --json
-#   engini connections list --application engini_workflows --json
+#   engini connections list --application engini_workflows --json      (lookup connection only)
 #   engini tools list --application engini_workflows
 #   engini tools get <slug> --json
 #   [ -n "$ENGINI_API_KEY" ]      (presence test only)

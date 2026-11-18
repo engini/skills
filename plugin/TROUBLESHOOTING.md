@@ -6,12 +6,12 @@ Flo stops and tells you when one of these comes back. What **you** do:
 
 | Error | What it means | What you do |
 |---|---|---|
-| 403 `API_KEY_REQUIRED` | Your `engini_workflows` connection does not use a Developer API key. This is the most likely first-run failure | Re-create the connection in your own terminal: `engini connect engini_workflows`, choose **auth method 1 (`x-api-key`)** and paste a **workspace-scoped** Developer API key. Then start Flo again. Changing anything else does not help |
-| 400 `SCOPE_REQUIRED` | Your key is not scoped to a workspace and environment. Writes always refuse it | Issue a workspace-scoped key in Engini, re-create the connection with it (as above), and log in again with `engini login` |
+| 403 `API_KEY_REQUIRED` | Your CLI login is not a Developer API key (or, for a folder/workflow lookup, your `engini_workflows` connection does not use one). This is the most likely first-run failure | In your own terminal: `engini login` with a **workspace-scoped** Developer API key. For the lookup connection: `engini connect engini_workflows`, choose **auth method 1 (`x-api-key`)** and paste a key for the same workspace. Then start Flo again. Changing anything else does not help |
+| 400 `SCOPE_REQUIRED` | Your key is not scoped to a workspace and environment. Writes always refuse it | Issue a workspace-scoped key in Engini and log in again with it (`engini login`, your own terminal); re-create the lookup connection with it too if you use one |
 | 403 `PERMISSION_DENIED` | The key's user may not create or edit workflows in that workspace | Ask your Engini account admin for the permission, or use a key from a user who has it |
 | 400 `INVALID_REQUEST` | Flo sent a malformed request | Flo fixes this himself; if it repeats, report it with the message |
 | 404 `SLUG_NOT_FOUND` | A tool Flo asked for does not exist for your account | Usually an outdated plugin or CLI: update both. Flo re-searches the catalog |
-| 404 `CONNECTION_NOT_FOUND` | A connection id Flo used is not usable here | Check `engini connections list`; the connection may have been deleted or belong to another workspace |
+| 404 `CONNECTION_NOT_FOUND` | A connection id Flo used for a step is not usable here | Check `engini workflows connections --app <app>`; the connection may have been deleted or belong to another workspace |
 | 404 `NOT_FOUND` | A workflow or folder is not in this workspace, or you cannot read it | Check you are logged in to the right account and workspace (`engini whoami`) |
 | 404 `UNKNOWN_FIELD` | Flo asked for options of a field that has none | Flo fixes this himself |
 | 400 `OPTIONS_NOT_READONLY` | A field's options come from a source Flo will not read | Flo leaves the field empty and lists it; fill it in the designer |
@@ -26,8 +26,8 @@ Flo stops and tells you when one of these comes back. What **you** do:
 
 | Symptom | Cause | What you do |
 |---|---|---|
-| Flo asks for a table id | No Flo tool can list your tables yet | Open the table in Engini and copy the id from the address bar (`.../tables/<table id>`) |
-| Flo asks for a column's field name | Flo must use the field name (such as `Text1`), not the column label, and cannot list columns yet | In the table, open **Manage Fields** and open the column's menu: **Field Name** is the value Flo needs |
+| Flo asks which table you mean | No table, or more than one, in `engini workflows tables` has the name you gave | Give the exact name, or open the table in Engini and copy the id from the address bar (`.../tables/<table id>`) |
+| Flo asks for a column's field name | Flo must use the field name (such as `Text1`), not the column label, and the label you gave matches no column (or several) in `engini workflows columns` | In the table, open **Manage Fields** and open the column's menu: **Field Name** is the value Flo needs |
 | Compile says `TABLE_NOT_FOUND` | The id is not one of your tables in this workspace and environment | Check the id, and that you are logged in to the workspace the table lives in (`engini whoami`) |
 | Compile says `TABLE_NOT_CHANGEABLE` | A table automation's table is set when it is created | Ask Flo for a new automation on the other table |
 | A step reads an empty value at run time | The reference used a column label or an unknown name | Fix the reference in the designer with the column's field name; for "record updated", read `newValues.<field name>` |
@@ -39,10 +39,11 @@ Flo stops and tells you when one of these comes back. What **you** do:
 | Symptom | Cause | What you do |
 |---|---|---|
 | `engini: command not found` | The CLI is not installed or not on your path | `npm i -g @engini/cli`, then open a new terminal |
-| Flo says the CLI is too old | Below 0.29.0, or `engini whoami --json` has no `workspace` key | `npm i -g @engini/cli@latest` |
+| Flo says the CLI is too old | Below 0.30.0, `engini workflows` is missing, or `engini whoami --json` has no `workspace` key | `npm i -g @engini/cli@latest` |
 | Flo says you are not logged in | No saved login | Run `engini login` yourself (interactive) |
 | Flo says the key is not scoped | `engini whoami` shows no workspace | Log in with a workspace-scoped key |
-| Flo finds no `engini_workflows` connection | You have not connected it yet | `engini connect engini_workflows`, auth method 1 (`x-api-key`), in your own terminal |
+| Flo builds in the wrong account, or stops because the account is not the one you named | The CLI is logged into another account, workspace or environment (`engini whoami`) | `engini login` in your own terminal with the key of the workspace you want, then ask again |
+| Flo asks for an `engini_workflows` connection | You asked for a folder or an existing workflow by name; the CLI cannot list those yet | `engini connect engini_workflows`, auth method 1 (`x-api-key`), a key for the same workspace, in your own terminal - or let Flo create the workflow outside a folder, or give him the workflow id from its designer address |
 | A step shows "no connection" in the proposal | You have no connection for that app in this workspace | Connect the app in Engini, or connect the step in the designer after Flo creates the workflow |
 | A dropdown that depends on another field is empty | Its options load only after the first field is set | Fill it in the designer; Flo lists every field it left empty |
 | The account or workspace is not the one you expected | `ENGINI_API_KEY` is set in your environment and overrides your saved login | Unset it, or make it the key you meant |
@@ -87,8 +88,8 @@ Removing it is a deliberate downgrade: only your own settings would be left. Whi
 
 | Message says | Why | What you do |
 |---|---|---|
-| **never-verb** (a prompt) | The command turns on/off, runs, reruns or deletes a workflow. Flo does this only when you explicitly asked for that action on that workflow | **Approve only if you asked for exactly this.** If you did not, answer No: Flo should not have tried. If the command only *names* one inside a plan's text, run the `engini tools call ... <<'EOF'` as its own command, opener on the first line: any other heredoc is checked as code |
-| **unreadable tool name** (a prompt) | The tool name in `engini tools call` is built from a shell variable, a substitution or a pattern, so the guard cannot check it against the never list and it could be one of the four | Answer No unless you know what it runs. Better: have Flo write the tool name literally. If the tool name sits inside an inline `--args '{...}'` value, pass the arguments through `--args -` with a quoted heredoc instead |
+| **never-verb** (a prompt) | The command turns on/off, runs, reruns or deletes a workflow - or is an `engini workflows` / `engini executions` command Flo does not build or read with, which could. Flo does this only when you explicitly asked for that action on that workflow | **Approve only if you asked for exactly this.** If you did not, answer No: Flo should not have tried. If the command only *names* one inside a plan's text, run the `engini workflows compile\|create\|update ... --file - <<'EOF'` (or `engini tools call ... --args - <<'EOF'`) as its own command, opener on the first line: any other heredoc is checked as code |
+| **unreadable tool name** (a prompt) | The tool name in `engini tools call`, or the command name after `engini workflows` / `engini executions`, is built from a shell variable, a substitution or a pattern, so the guard cannot check it against the never list and it could be one of the four | Answer No unless you know what it runs. Better: have Flo write the tool name literally. If the tool name sits inside an inline `--args '{...}'` value, pass the arguments through `--args -` with a quoted heredoc instead |
 | **raw-key command** (a refusal) | `engini connect`, `engini login`, `connections create/update/delete`, `auth-providers create/update` or `--api-key` | Run it yourself **in your own terminal, outside Claude Code or Codex** - not with the `!` prefix: in Claude Code's `!` mode the input is not a terminal, so the CLI cannot hide the key you type. Flo gives you the exact command; tell him when it is done |
 | **key read** | It touches the CLI's stored login, an `ENGINI_*` key variable, or dumps the whole environment | Nothing to fix; check presence only, with `[ -n "$ENGINI_API_KEY" ]` |
 | **protected file** | It edits the guard itself, the plugins folder or your home Claude Code / Codex settings, or a shell inside a `.claude` folder ran more than a read | Make that change yourself |

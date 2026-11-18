@@ -35,16 +35,19 @@ work on `main` reaches nobody until a release moves the pin.
 - **The heavy content exists once.** Rules live in `SKILL.md` (what must hold even unread) and
   `references/agent-rules.md` (the full set). Adapters point at the skill; they never paraphrase a rule
   (`tools/adapter-check.sh` hashes each adapter against a fixed template).
-- **What the hook refuses or asks about is defined once, in `tools/rules.json`.** The four `never_verbs` **ask** the
-  user (the hook's `ask` decision, the settings `ask` list, Codex `prompt`); the `raw_key_*` commands are **refused**
+- **What the hook refuses or asks about is defined once, in `tools/rules.json`.** The four `never_verbs` and their
+  CLI forms (`cli_never_commands`) **ask** the user (the hook's `ask` decision, the settings `ask` list, Codex
+  `prompt`); the hook also asks about any `engini workflows|executions` verb outside `cli_known_verbs`; the `raw_key_*` commands are **refused**
   by the hook (the refusal tells the agent to hand the command to the user's own terminal, never to `!`), `ask` in the
   settings and `prompt` in Codex (no hook there; its justification tells the user to decline and run the command in
   their own terminal). Key reads, env dumps and self-protection stay deny. A refusal beats a question when one command
   trips both. `python3 tools/generate.py` writes the hook's constant block, the never-verb block in `SKILL.md` and
   the README settings block (its marker is still `flo:deny-block`). Never edit a generated block by hand; CI fails
   when one is stale.
-- **The call shape** is in `tools/call-shape.txt`. Change it only together with the corpus and the hook (the hook
-  strips exactly that heredoc shape).
+- **The call shapes** are in `tools/call-shape.txt`: the `engini workflows compile|create|update --file -` plan
+  heredoc for the builder, and the `engini tools call ... --args -` heredoc for the few `engini_workflows` tools the
+  CLI has no command for. Change them only together with the corpus and the hook (the hook strips exactly those
+  heredoc shapes).
 - **Do not develop this repo with the published Flo plugin enabled.** Its guard refuses edits to `hooks/*hooks.json`,
   `deny-never-verbs` and any `.codex/` path - that is the guard working as intended.
 - **Test your working tree, not the marketplace.** Adding this checkout as a marketplace installs the pinned tag, not
@@ -54,8 +57,8 @@ work on `main` reaches nobody until a release moves the pin.
 
 ```bash
 python3 tools/generate.py --check      # generated blocks current
-python3 tools/rules-check.py           # never-verbs in the SKILL body + README settings block (ask, not deny), tool-map drift, 15 HTTP codes in TROUBLESHOOTING
-python3 tools/hook-selftest.py         # ~200 rows (allow / ask / deny), the hook's JSON output, open-on-purpose rows, 2 MB timing, the 21-slug contract snapshot
+python3 tools/rules-check.py           # never-verbs (and CLI forms) in the SKILL body + README settings block (ask, not deny), tool-map drift (CLI commands too), 15 HTTP codes in TROUBLESHOOTING
+python3 tools/hook-selftest.py         # ~290 rows (allow / ask / deny), the hook's JSON output, open-on-purpose rows, 2 MB timing, the CLI verb lists, the 21-slug contract snapshot
 bash tools/scrub-check.sh              # leak check over the WHOLE repo (generic shapes, see below); --commits RANGE adds commits
 python3 tools/scrub-literals.py        # the private term list from $SCRUB_DENYLIST (skips with a notice when unset)
 bash tools/adapter-check.sh            # adapters hash to their templates; one skill dir; no symlinks

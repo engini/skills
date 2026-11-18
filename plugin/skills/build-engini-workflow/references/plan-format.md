@@ -134,8 +134,8 @@ it to `filters`.
   `{{find_acct.Id}}`, never `{{find_acct.records[0].Id}}` (that gives `UNKNOWN_OUTPUT_PATH`). With no `top` or
   `top` > 1 the output is a list. The record's fields come from the object picked on the step (`sobject`, objectType).
 - A filter field marked `hasOptions` in the schema takes an **option id** as a literal `value` (e.g. `singleEvents`
-  eq `true`). List the ids with `get_builder_field_options` (field = the filter field, connectionId = the step's
-  connection). A literal that is no option id warns `UNKNOWN_OPTION` (or `OPTION_NOT_CHECKED` when the list is empty/searched/multi-select/dependent on a reference) and is kept as written. The builder stores the
+  eq `true`). List the ids with `engini workflows options` (`--field` = the filter field, `--connection` = the
+  step's connection). A literal that is no option id warns `UNKNOWN_OPTION` (or `OPTION_NOT_CHECKED` when the list is empty/searched/multi-select/dependent on a reference) and is kept as written. The builder stores the
   pick as the designer's option badge.
 - On an edit, **omitting `filters` / `top` / `sorts` clears them** (unlike `schedule`). Send back the ones to keep.
 - `compile_workflow_plan`'s step preview does not show filters / top / sorts even when they compile; confirm with
@@ -215,11 +215,11 @@ example - read it first. n8n "chat with a database" template, as a plan (agent s
   (`INVALID_AI_MODEL`). `connection` is `auto` or an id of that provider's connection, never `none`
   (`AI_MODEL_CONNECTION_REQUIRED`). `inputs.model` (the model id) is required
   (`AI_MODEL_NAME_REQUIRED`) and is a dropdown read through the model's connection: list the ids with
-  `get_builder_field_options` slug `model.{provider}` (e.g. `model.anthropic`), field `model`, `connectionId` = the
-  model's connection, and use an option id. An id not in the list is `UNKNOWN_OPTION` (warning); an unreadable list
+  `engini workflows options model.{provider} --field model --connection <the model's connection>` (e.g.
+  `model.anthropic`), and use an option id. An id not in the list is `UNKNOWN_OPTION` (warning); an unreadable list
   is `NEEDS_CUSTOMER_INPUT` (warning, value kept as typed). `model.azure_openai` has no list: its model input is hidden
-  (a typed deployment name) and no id is required. Find model connections with `list_builder_connections
-  app=model.{provider}`, never `app=open_ai` (a plain slug lists only the app that wins the slug, which may not carry
+  (a typed deployment name) and no id is required. Find model connections with `engini workflows connections
+  --app model.{provider}`, never `--app open_ai` (a plain slug lists only the app that wins the slug, which may not carry
   the model row). With `auto`, an unpublished app's connection gets `AUTO_CONNECTION_UNPUBLISHED_APP` - give the
   published app's connection id.
 - `memory` `{sessionId, windowLength 0-100}` is chat memory (`INVALID_AI_MEMORY`). Add `memory` only when the user
@@ -392,23 +392,27 @@ ordinary plan plus a top-level `table` (the table's id) and a Tables trigger:
 
 (`start` stands for the trigger's key.)
 
-- **These three slugs come from this table, not from the catalog.** The catalog tools cannot show Tables triggers yet:
-  `search_builder_catalog` does not return them and `get_builder_tool_schema` on one is `SLUG_NOT_FOUND`. Write the
-  slug as above; the compile resolves it when the plan has `table`. The trigger takes no inputs.
-- **The table id comes from the user.** No builder tool lists tables yet, so ask: it is the id in the table's
-  address in the Engini app (`.../tables/<table id>`). The compile checks it is one of the user's tables in this
-  workspace and environment (`TABLE_NOT_FOUND` otherwise). Never guess or reuse one.
+- **These three slugs show only for a table.** A plain catalog search does not return the Tables triggers; `engini
+  workflows search --table <table id> --kind trigger` does (prefer the `tables.` slugs; the catalog can also show
+  copies under other app slugs), and `engini workflows schema <slug> --kind trigger --table <table id>` reads one.
+  The compile resolves the slug when the plan has `table`. The trigger takes no inputs.
+- **The table id comes from `engini workflows tables`** (`[{id, name}]`): match the name the user gave (exact,
+  case-insensitive); zero or several matches -> list the candidates and ask. The user can also give the id from the
+  table's address in the Engini app (`.../tables/<table id>`). The compile checks it is one of the user's tables in
+  this workspace and environment (`TABLE_NOT_FOUND` otherwise). Never guess or reuse one.
 - **`table` sets the trigger's table too.** Do not give the trigger a table input; one that differs from `table` is
   `TABLE_NOT_CHANGEABLE`.
 - **Columns are referenced by their field name** (`Text1`, `Number2`, ...), never by the label the user sees (`sku`,
   `Customer email`). A label or an unknown name compiles with only an `UNKNOWN_OUTPUT_PATH` warning, saves, and then
-  reads empty on every run: treat that warning as must-fix here. No builder tool lists a table's columns yet, so ask
-  the user for each field name: in the table's **Manage Fields** list, a column's menu shows its **Field Name**. If
-  the user cannot give one, leave that reference out and list it under Warnings for the designer. Never derive a field
-  name from a label.
+  reads empty on every run: treat that warning as must-fix here. `engini workflows columns <table id> --trigger
+  <slug>` lists the columns as that trigger reads them (`[{name, label, type, outputs}]`): map the user's label to
+  its `name`, and read the record-updated paths from `outputs`. A label that matches no column, or two -> ask the user
+  (in the table's **Manage Fields** list, a column's menu shows its **Field Name**). If it stays unknown, leave that
+  reference out and list it under Warnings for the designer. Never derive a field name from a label by guessing.
 - **Connections:** `connection: "auto"` on the Tables trigger and on Tables actions - the Tables app needs no
   connection of the user's.
-- **Tables actions** (add a comment, update a record, ...) are found by `search_builder_catalog` with `app` `tables`.
+- **Tables actions** (add a comment, update a record, ...) are found by `engini workflows search --app tables`
+  (add `--table <table id>` for that table's actions).
   Prefer the `tables.` slugs; the catalog can also show copies under other app slugs. Their `TableId` is a dropdown
   whose options cannot be read through the user's connection: set it to the automation's table id and name it in
   the proposal's Picks list.
@@ -425,10 +429,7 @@ ordinary plan plus a top-level `table` (the table's id) and a Tables trigger:
 - **To edit one**, `get_workflows` cannot find it by name: ask the user for the workflow id from its designer address
   (`.../workflows/<id>/edit`), read it with `get_workflow_plan`, and confirm its `name` and `table` with the user
   before you design anything.
-- A diagnostic message may say "Use an id from GET catalog/tables": that list is not a builder tool yet - ask the
-  user instead. Listing tables and their columns (with the `newValues.` / `oldValues.` paths) arrives with an update
-  of the `engini_workflows` connector; until `engini tools list --application engini_workflows` shows such a tool,
-  follow this section.
+- A diagnostic message may say "Use an id from GET catalog/tables": that list is `engini workflows tables`.
 
 ## 1j. Trigger listen columns and condition (`listenColumns`, trigger `condition`)
 
@@ -534,9 +535,8 @@ does not offer it); the user adds it in the designer.
 
 ## 5. Severity and the write gate
 
-`compile_workflow_plan` returns `{name, steps, jumps, diagnostics, keyMap, hasErrors, workspaceId, environmentId}` -
-the last two are the scope the **connection** you compiled with resolves to, i.e. where a write through that same
-connection lands. Any `severity: "error"` blocks create/update (`422 PLAN_HAS_ERRORS`). Warnings are allowed and must
+`engini workflows compile` returns `{name, steps, jumps, diagnostics, keyMap, hasErrors, workspaceId, environmentId}` -
+the last two are the scope the CLI's **login** resolves to, i.e. where a write from that same login lands. Any `severity: "error"` blocks create/update (`422 PLAN_HAS_ERRORS`). Warnings are allowed and must
 be reported to the user, especially `MISSING_CONNECTION`, `NEEDS_CUSTOMER_INPUT`, `UNVERIFIED_INPUT`,
 `UNKNOWN_OPTION`, `OPTION_NOT_CHECKED`. Full code list: `tool-map.md` §3.
 

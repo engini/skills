@@ -1,42 +1,86 @@
-# `engini_workflows` tool map (builder)
+# Builder command map (`engini workflows`) and the `engini_workflows` tools
 
-The `engini_workflows` application carries 21 tools (`engini tools list --application engini_workflows`). The
-argument names below were read from the live schema (`engini tools get`). Re-check before the first call of a run -
-the live schema wins over this file (read `input_schema.required` and `input_schema.properties`):
+Every builder step is an `engini workflows` command of the `engini` CLI (0.30.0 or later), run as the account the
+CLI is logged into - no connection. The flags below were read from `engini workflows <verb> --help`; re-check before
+the first call of a run - the live help wins over this file:
 
 ```bash
-engini tools get engini_workflows_<verb> --json
+engini workflows <verb> --help        # flags and examples
+engini workflows <verb> --schema      # the same, as JSON
 ```
 
-The live schema lists every argument under `required`, including ones the server treats as optional: the
-**Required** column below is what you must send.
-
-Every call (the arguments go through stdin; nothing is written to disk):
+The reads take flags. The three commands that take a plan read it from stdin (`--file -`, a quoted heredoc - nothing
+is written to disk). The body is the **bare plan** `{"name":..., "trigger":..., "steps":[...]}` - wrapped in
+`{"plan": ...}` it compiles as an empty plan (`MISSING_TRIGGER`):
 
 ```bash
-engini tools call engini_workflows_<verb> --args - --connection <connection id> --max-bytes 0 <<'EOF'
-{"q":"send email","kind":"action"}
+engini workflows compile --file - <<'EOF'
+{"name":"Ping","trigger":{"key":"start","tool":"builtin_tools.Button"},"steps":[]}
 EOF
 ```
 
-`--connection` is the user's own `engini_workflows` connection (auth method 1, API key `x-api-key`) - the one the
-preflight compile resolved, and the same id for the compile and the write. `--max-bytes 0` keeps schemas and plans
-from being truncated and keeps results out of the CLI's local result cache. Ids are JSON numbers.
+Output is the API's own camelCase JSON (JSON whenever stdout is not a terminal; `--json` pretty-prints it). A refusal
+prints `code`, `message`, `fix` and any diagnostics on stderr and exits non-zero: 404 -> 4, 400/409/422 -> 5, not
+logged in -> 3. Ids are plain numbers or the GUIDs the output gives.
 
-## 1. Builder tools
+## 1. Builder commands
 
-API-key connections only (`403 API_KEY_REQUIRED` otherwise).
+`--connection <id>` on `schema` and `options` is a **step's** connection (one from `engini workflows connections`),
+read through to the connected system - never a door into the account.
 
-| Slug | Purpose | Required | Optional | Args example |
-|---|---|---|---|---|
-| `engini_workflows_search_builder_catalog` | Find triggers, actions, blocks the designer picker shows this account. Returns `[{slug, kind, app, name, description, score}]` | `q` | `kind` (`action` / `trigger` / `block`), `app`, `top` (default 10, max 100) | `{"q":"send email","kind":"action","app":"gmail","top":10}` - the text argument is `q`; `query` is ignored and returns the same unfiltered list for every search |
-| `engini_workflows_get_builder_tool_schema` | Input/output schema + `dynamicFields` (the dropdown fields) + `subItems` (row tables like Http Queries/Headers: `tables`/`fields`/`manyRows` - never inputs). A trigger's schema also carries `triggerGates` (`supportsListenColumns` / `supportsCondition`, plan-format §1j). With `connectionId` it reads the connected system (per-connection objects and enums) | `slug` | `connectionId`, `kind` - add both for an action/trigger (live per-connection read), leave them out for a `block.*` | `{"slug":"<slug>","kind":"action","connectionId":123}` - the argument is `slug`, not `tool` |
-| `engini_workflows_get_builder_field_options` | Option `{id,label}` list of ONE dropdown field, read through one of the user's connections. Also serves a filter field with `hasOptions` (field = the filter field). Slug `model.{provider}` + field `model` reads an AI agent's model list through the model connection (404 `UNKNOWN_FIELD` for `model.azure_openai`; 502 when the list cannot be read) | `slug`, `field`, `connectionId` | `kind` | `{"slug":"<slug>","field":"BOARD_ID","connectionId":123,"kind":"action"}` |
-| `engini_workflows_list_builder_connections` | The user's connections of one app in the key's workspace/environment: `[{connectionId, name, isDefault, applicationId}]`. `app` also takes `model.{provider}`: the connections an AI agent's model of that provider can run on | `app` | - | `{"app":"<exact catalog app slug or app-{id}>"}` - without `app`: 400 "Name the app". The catalog can hold duplicate/draft/test apps: prefer the plain slug |
-| `engini_workflows_compile_workflow_plan` | Dry run: compile + validate, saves nothing (may read the vendor for dropdown labels). Returns `{name, steps, jumps, diagnostics, keyMap, hasErrors, workspaceId, environmentId}` - the last two are the scope of the **connection** used; credential-looking inputs show `***` | `plan` | `baseWorkflowId` (when editing) | `{"plan":{...},"baseWorkflowId":456}` |
-| `engini_workflows_get_workflow_plan` | Saved workflow as a plan (`s{N}` keys, opaque steps) + `revisionId` (+ `webhookUrl` for a webhook trigger). Values are NOT redacted | `workflowId` | - | `{"workflowId":456}` |
-| `engini_workflows_create_workflow_from_plan` | **Write.** Creates the workflow turned off, flagged AI-built. 201 `{workflowId, designerUrl, revisionId, diagnostics, workspaceId, environmentId, webhookUrl}` (`webhookUrl` only for a webhook trigger) | `plan` | `folderId` | `{"plan":{...},"folderId":789}` |
-| `engini_workflows_update_workflow_from_plan` | **Write.** Full-graph update of a turned-off workflow, saved turned off. 200 `{workflowId, revisionId, diagnostics, workspaceId, environmentId}` | `workflowId`, `plan`, `expectedRevisionId` | - | `{"workflowId":456,"plan":{...},"expectedRevisionId":<revisionId from get_workflow_plan>}` |
+| Operation (the name the skill uses) | Command | Flags | Returns / notes |
+|---|---|---|---|
+| `search_builder_catalog` | `engini workflows search '<text>'` | `--kind action\|trigger\|block`, `--app <slug>`, `--table <table id>` (that table's Tables triggers and actions), `--top <n>` (default 10, max 100) | Triggers, actions, blocks the designer picker shows this account: `[{slug, kind, app, name, description, score}]` |
+| `get_builder_tool_schema` | `engini workflows schema <slug>` | `--kind`, `--connection <id>` (add both for an action/trigger: live per-connection read; leave them out for a `block.*`), `--table <table id>` | Input/output schema + `dynamicFields` (the dropdown fields) + `subItems` (row tables like Http Queries/Headers: `tables`/`fields`/`manyRows` - never inputs). A trigger's schema also carries `triggerGates` (`supportsListenColumns` / `supportsCondition`, plan-format §1j) |
+| `get_builder_field_options` | `engini workflows options <slug> --field <field> --connection <id>` | `--kind`, `--depends-on <parent field>=<value>` (repeatable, for a field whose list depends on another) | Option `{id, label}` list of ONE dropdown field, read through one of the user's connections. Also serves a filter field with `hasOptions` (field = the filter field). Slug `model.{provider}` + field `model` reads an AI agent's model list through the model connection (404 `UNKNOWN_FIELD` for `model.azure_openai`; 502 when the list cannot be read) |
+| `list_builder_connections` | `engini workflows connections --app <slug>` | `--app` required (exact catalog app slug or `app-{id}`; also `model.{provider}`: the connections an AI agent's model of that provider can run on) | The user's connections of one app in the login's workspace/environment: `[{connectionId, name, isDefault, applicationId}]`. The catalog can hold duplicate/draft/test apps: prefer the plain slug |
+| (tables) | `engini workflows tables` | - | The user's tables in this workspace/environment: `[{id, name}]` (plan-format §1i) |
+| (columns) | `engini workflows columns <table id>` | `--trigger <Tables trigger slug>` | A table's columns as that trigger reads them: `[{name, label, type, outputs}]` - `name` is the field name a plan references (plan-format §1i) |
+| `compile_workflow_plan` | `engini workflows compile --file - <<'EOF'` | `--base-workflow-id <id>` (when editing) | Dry run: compile + validate, saves nothing (may read the vendor for dropdown labels). Returns `{name, steps, jumps, diagnostics, keyMap, hasErrors, workspaceId, environmentId}` - the last two are the login's scope, where a write lands; credential-looking inputs show `***`. A plan with errors is printed (`hasErrors: true`), not failed |
+| `get_workflow_plan` | `engini workflows plan <workflow id>` | - | Saved workflow as a plan (`s{N}` keys, opaque steps) + `revisionId` (+ `webhookUrl` for a webhook trigger). Values are NOT redacted |
+| `create_workflow_from_plan` | `engini workflows create --file - <<'EOF'` | `--folder-id <id>`, `--dry-run` | **Write.** Creates the workflow turned off, flagged AI-built: `{workflowId, designerUrl, revisionId, diagnostics, workspaceId, environmentId, webhookUrl}` (`webhookUrl` only for a webhook trigger). Refused with `SCOPE_REQUIRED` for an unscoped key, `PLAN_HAS_ERRORS` for a plan with errors |
+| `update_workflow_from_plan` | `engini workflows update <workflow id> --file - <<'EOF'` | `--expected-revision-id <revisionId from plan>`, `--dry-run` | **Write.** Full-graph update of a turned-off workflow, saved turned off: `{workflowId, revisionId, diagnostics, workspaceId, environmentId}` |
+
+Run history (read-only; only when the user asks - it is the user's run data, never log its values):
+`engini executions list` (`--workflow <id>`, `--status`, `--top`, ...), `engini executions get <execution id>`,
+`engini executions log <execution id>` (per-step log), `engini executions data <execution id> <step no>`
+(recorded payloads, `--type request|response|input|status`). The CLI has no rerun.
+
+Notes:
+- `designerUrl` is `<app>/workflows/{id}/edit`; it is null when the deployment has no client URL configured - then
+  build it from the app host yourself and say so.
+- `webhookUrl` (in the `create` and `plan` output, and on `get_workflow`) is the address the sender calls to start
+  the workflow - e.g. a Webflow form's webhook. It is returned only when the trigger is a webhook Engini hands out,
+  and omitted for every other trigger. The token inside it is what authorizes a call, so treat it like a key: give it
+  to the user for the sender's settings, never write it to a session log, lesson or file. A relative path on the
+  trigger shows as `{name}` placeholders the sender fills in. Calls answer 404 while the workflow is turned off.
+  `update` does not return it - read it back with `engini workflows plan`.
+- `dependsOn` (options of a field that depends on another field): pass the parent's value with `--depends-on
+  <parent field>=<option id>` (repeat it per parent). If the list still cannot be read, leave the field for the user
+  and list it in the proposal.
+- `schema` with a `--connection` and `options` are rate-limited vendor reads: read each field once per run, not per
+  repair round.
+- **Table automations** (`plan-format.md` §1i): `tables` lists the user's tables, `columns <table id> --trigger
+  <slug>` a table's columns by field name, and `search --table <table id>` shows that table's Tables triggers and
+  actions (a plain search does not). Compile and the two writes take the plan's `table`. A table automation is
+  reachable through the builder commands only: `get_workflows` and `get_workflow` do not return it, and enable, run
+  and delete answer `404 NOT_FOUND` for it.
+- `create --dry-run` / `update --dry-run` preview the request without sending it; they are not a compile.
+
+## 2. Other `engini_workflows` tools (no CLI command yet)
+
+These run through `engini tools call` and need the user's own `engini_workflows` connection (auth method 1, API key
+`x-api-key`, the same workspace and environment as the login - check with a `get_folders` row's `workspaceId` /
+`environmentId` against `engini whoami`). The arguments go through stdin; nothing is written to disk:
+
+```bash
+engini tools call engini_workflows_<verb> --args - --connection <connection id> --max-bytes 0 <<'EOF'
+{"name":"Invoices"}
+EOF
+```
+
+`--max-bytes 0` keeps results out of the CLI's local result cache. Ids are JSON numbers. Before the first call of a
+run, `engini tools get engini_workflows_<verb> --json` (its `input_schema` wins over this file).
 
 Name lookups (read-only, used by the preflight to resolve a folder or workflow the user names):
 
@@ -46,35 +90,15 @@ Name lookups (read-only, used by the preflight to resolve a folder or workflow t
 | `engini_workflows_get_workflows` | `name`, `folderName`, `folderId`, `workflowId`, `enabled`, `blocked`, `deleted`, `type`, `connectionId`, `createdBy`, `updatedBy`, `updatedAfter` / `updatedBefore`, `lastRunAfter` / `lastRunBefore`, `deletedAfter`, `updatedAt`, `lastRunAt`, `Filters`, `SelectTop`, `Sorts` | the workflows in the key's scope |
 
 Pass the name the user gave (`{"name":"Invoices"}`), then match it yourself on the returned `name` (exact,
-case-insensitive). Exactly one match -> use its id. Zero or several -> STOP, list the candidates, ask.
+case-insensitive). Exactly one match -> use its id, and read it with `engini workflows plan <id>` (a 404 there means
+it is not in the login's scope: STOP). Zero or several -> STOP, list the candidates, ask.
 
-Notes:
-- `designerUrl` is `<app>/workflows/{id}/edit`; it is null when the deployment has no client URL configured - then
-  build it from the app host yourself and say so.
-- `webhookUrl` (in the `create_workflow_from_plan` and `get_workflow_plan` responses, and on `get_workflow`) is the
-  address the sender calls to start the workflow - e.g. a Webflow form's webhook. It is returned only when the
-  trigger is a webhook Engini hands out, and omitted for every other trigger. The token inside it is what authorizes
-  a call, so treat it like a key: give it to the user for the sender's settings, never write it to a session log,
-  lesson or file. A relative path on the trigger shows as `{name}` placeholders the sender fills in. Calls answer
-  404 while the workflow is turned off. `update_workflow_from_plan` does not return it - read it back with
-  `get_workflow_plan`.
-- `dependsOn` (options of a field that depends on another field) **cannot be sent** through the connector. Leave
-  such fields for the user and list them in the proposal.
-- `get_builder_tool_schema` with a `connectionId` and `get_builder_field_options` are rate-limited vendor reads: read
-  each field once per run, not per repair round.
-- **Table automations** (`plan-format.md` §1i): the catalog tools take no table yet, so they do not show the three
-  Tables triggers (search returns none, the schema is `SLUG_NOT_FOUND`), and no tool lists the user's tables or a
-  table's columns. Use the trigger slugs from §1i and ask the user for the table id and the column field names. A
-  compile or create needs nothing more: `compile_workflow_plan` and the two writes accept `table` today. A table
-  automation is reachable through the builder tools only: `get_workflows` and `get_workflow` do not return it, and
-  enable, run and delete answer `404 NOT_FOUND` for it.
-
-## 2. Other `engini_workflows` tools
+The whole group:
 
 | Slug | Flo may call it? |
 |---|---|
 | `engini_workflows_get_workflows`, `engini_workflows_get_workflow`, `engini_workflows_get_workflow_revisions`, `engini_workflows_get_folders`, `engini_workflows_get_connections` | Yes - read-only. `get_folders` gives a `folderId`; `get_workflows` is the dry-run "nothing was written" count |
-| `engini_workflows_get_executions`, `get_execution`, `get_execution_log`, `get_execution_step_data` | Only if the user asks (they read the user's run data; never log values) |
+| `engini_workflows_get_executions`, `get_execution`, `get_execution_log`, `get_execution_step_data` | Use `engini executions list\|get\|log\|data` instead (§1), and only if the user asks (they read the user's run data; never log values) |
 | `engini_workflows_enable_or_disable_workflow` | **ONLY IF THE USER ASKS** for exactly this action on this workflow, in this conversation - never on Flo's own initiative, never to "finish the job". The user gets a permission prompt. A workflow Flo creates stays turned off |
 | `engini_workflows_run_workflow`, `engini_workflows_rerun_execution` | **ONLY IF THE USER ASKS** (same rule) |
 | `engini_workflows_delete_workflow` | **ONLY IF THE USER ASKS** (same rule) |
@@ -83,20 +107,22 @@ Notes:
 
 ### 3a. HTTP refusals (`application/problem+json` `{status, code, path, message, fix, diagnostics?, currentRevisionId?}`)
 
+The CLI prints them on stderr and exits non-zero (404 -> 4, 400/409/422 -> 5).
+
 | Status / code | Means | Do |
 |---|---|---|
-| 400 `SCOPE_REQUIRED` | Key not scoped to a workspace + environment. Writes always refuse an unscoped key; reads refuse only when no workspace resolves | STOP. Ask the user to issue a workspace-scoped key and re-create their connection with it. Never work around it |
-| 403 `API_KEY_REQUIRED` | Caller is not a Developer API key (wrong auth method on the connection) | STOP. The connection must use auth method 1 (API key). Tell the user |
+| 400 `SCOPE_REQUIRED` | Key not scoped to a workspace + environment. Writes always refuse an unscoped key; reads refuse only when no workspace resolves | STOP. Ask the user to issue a workspace-scoped key and log in with it (`engini login`, their own terminal) - and re-create the lookup connection with it if they use one. Never work around it |
+| 403 `API_KEY_REQUIRED` | Caller is not a Developer API key (a login token, or the wrong auth method on the lookup connection) | STOP. The login must be a Developer API key (`engini login`); a lookup connection must use auth method 1 (API key). Tell the user |
 | 403 `PERMISSION_DENIED` | Key's user lacks `workspace.create.workflows` (or edit on that workflow) | STOP. Tell the user; their account admin grants it |
-| 400 `INVALID_REQUEST` | Bad arg (missing `plan`, `field`, `connectionId`, `app`, bad `kind`, body > 1 MB, invalid JSON) | Fix the args per `path`/`message` |
+| 400 `INVALID_REQUEST` | Bad arg (missing plan, `--field`, `--connection`, `--app`, bad `--kind`, body > 1 MB, invalid JSON) | Fix the args per `path`/`message` |
 | 404 `SLUG_NOT_FOUND` | Tool slug unknown/hidden for this account | Re-search the catalog; never guess a slug |
-| 404 `CONNECTION_NOT_FOUND` | A named `connectionId` is not usable here | Re-list connections; use one from the list, or omit |
-| 404 `NOT_FOUND` | Workflow/folder not in this scope or not readable | Check the id against `get_workflows`; a workflow in another workspace is invisible by design |
+| 404 `CONNECTION_NOT_FOUND` | A named `--connection` is not usable here | Re-list with `engini workflows connections --app <slug>`; use one from the list, or omit |
+| 404 `NOT_FOUND` | Workflow/folder not in this scope or not readable | Check you are logged in to the right account and workspace (`engini whoami`); a workflow in another workspace is invisible by design |
 | 404 `UNKNOWN_FIELD` | Options asked for a non-dropdown field | Use a field from the schema's `dynamicFields` |
 | 400 `OPTIONS_NOT_READONLY` | Field's options come from a source the builder will not run (a designer-local list, or a workflow the builder does not run) | Leave the field for the user; say so |
 | 422 `PLAN_HAS_ERRORS` | A write refused: the plan has error diagnostics (listed). Nothing saved | Fix every error (compile again), then re-send. Never retry unchanged |
 | 409 `WORKFLOW_ACTIVE` | Update refused: the workflow is on | STOP. Ask the user to turn it off, or offer a new turned-off copy (create) |
-| 409 `REVISION_CONFLICT` | Saved since you read it (`currentRevisionId` given) | Re-read with `get_workflow_plan`, re-apply the change, compile, show the diff again, then update with the new `revisionId` |
+| 409 `REVISION_CONFLICT` | Saved since you read it (`currentRevisionId` given) | Re-read with `engini workflows plan`, re-apply the change, compile, show the diff again, then update with the new `revisionId` |
 | 400 `SAVE_REJECTED` | The designer's own save gates refused (connection ownership, schedule floor, AI tool names, ...) | Fix per `message`, compile, re-send once approved |
 | 502 `VENDOR_ERROR` | The connected system failed during a read | Tell the user the connection may need re-authorizing; don't loop |
 | 500 `INTERNAL_ERROR` | Server fault | Stop and report with the time; do not retry a write |
@@ -186,7 +212,7 @@ Compiler checks:
 | `AI_TOOL_NOT_ALLOWED` | error | Tool is not a plain connector action (block, container, AI Agents app action, authenticated HTTP), or an `aiInputs` field is a URL/host/credential: set it in `inputs` or on the connection |
 | `AI_TOOL_FREEFORM_INPUT` | warning | The LLM fills a SQL/code/script/body field and can write anything there. **List every one in the proposal table** for the user to approve; recommend a read-only DB user |
 | `AI_TOOLS_CLEARED` | warning | The edit left out `memory` or `tools` of an existing agent, so they were removed - resend them from `get_workflow_plan` unless removal is intended |
-| `TABLE_NOT_FOUND` | error | `table` is not a table id, or not one of the user's tables in this workspace and environment. Ask the user for the id from the table's address (`plan-format.md` §1i); never guess one. The message's "GET catalog/tables" is not a builder tool yet |
+| `TABLE_NOT_FOUND` | error | `table` is not a table id, or not one of the user's tables in this workspace and environment. Take the id from `engini workflows tables` (by the table's name), or ask the user for the id from the table's address (`plan-format.md` §1i); never guess one |
 | `TABLE_REQUIRED` | error | A Tables trigger needs `table`. On a create, add it. On an edit of an ordinary workflow it cannot be added: build a new table automation instead |
 | `TABLE_NOT_ALLOWED` | error | `table` with a trigger that is not a Tables trigger (an edit whose kept `opaque` trigger is not one). Use a Tables trigger, or leave `table` out |
 | `TABLE_NOT_CHANGEABLE` | error | The table is fixed at create: a different `table` on an edit, a `table` added to an ordinary workflow, or a trigger table input that differs from `table`. Leave `table` out on an edit (it keeps its table) and give the trigger no table input; to use another table, create a new workflow |
@@ -215,7 +241,12 @@ n8n AI mapping (`plan-format.md` §1e): `chatTrigger` -> webhook trigger; `agent
 
 ## 4. CLI-level failures
 
-- Exit 4 / unknown slug: the connector changed. Re-run `engini tools list --application engini_workflows` and adapt.
-- A tool listed by the CLI that errors before reaching the API (bad wire shape, `plan` arriving as a string): stop and
+- `engini workflows` missing, or a flag this file names is unknown (exit 2): the CLI is older than 0.30.0 or changed.
+  Re-read `engini workflows <verb> --help` and adapt; ask the user to update the CLI if a command is missing.
+- Exit 3: not logged in, or the login is not a Developer API key - STOP (rule 7: the user runs `engini login` in their
+  own terminal).
+- Exit 4 / unknown slug on a `tools call`: the connector changed. Re-run `engini tools list --application
+  engini_workflows` and adapt.
+- A command or tool that errors before reaching the API (bad wire shape, the plan arriving as a string): stop and
   tell the user at once - it is an Engini-side fault to report to Engini support. Do not switch to curl or
   `SendApiRequest` with the user's key to work around it.

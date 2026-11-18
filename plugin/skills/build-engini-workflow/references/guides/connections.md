@@ -2,24 +2,24 @@
 
 Two different kinds of connection are in play. Never mix them up.
 
-## 1. Flo's door into the account: the user's `engini_workflows` connection
+## 1. Flo's door into the account: the user's own CLI login
 
-- The user's own connection of application `engini_workflows`, **auth method 1 (API key, header `x-api-key`)**,
-  holding a key the user issued in their own account. The user creates it; Flo never creates, updates or deletes a
-  connection and never handles the key.
-- Find it: `engini connections list --application engini_workflows --json`. None -> **STOP** and ask the user to
-  create one. Several -> ask which one; never pick silently.
-- The key must be **workspace-scoped**: create/update refuse an unscoped key with `400 SCOPE_REQUIRED`. Reads and
-  `compile_workflow_plan` do **not** refuse one - they fall back to the account's default workspace + Production,
-  which can mislead. Two stops, both before any design work: `engini whoami --json` with an empty `workspace` (the
-  login key), and a preflight compile whose `workspaceId` / `environmentId` differ from `whoami`'s `workspace.id` /
-  `environment.id` (the connection holds a different key) -> STOP and tell the user the connection needs a
-  workspace-scoped key.
+- Every `engini workflows` command runs as the key the `engini` CLI is logged in with - the user's own
+  workspace-scoped Developer API key, stored by `engini login` in their own terminal. Flo never logs in, never
+  switches accounts (no `ENGINI_API_KEY`, no other config folder, no `--api-key`) and never handles the key.
+- `engini whoami --json` shows the login's account, workspace and environment. The key must be
+  **workspace-scoped**: create/update refuse an unscoped key with `400 SCOPE_REQUIRED`, and reads and compile fall
+  back to the account's default workspace + Production, which can mislead. Two stops, both before any design work:
+  `whoami` with an empty `workspace`, and a preflight compile whose `workspaceId` / `environmentId` differ from
+  `whoami`'s `workspace.id` / `environment.id`.
 - The key pins account, workspace and environment server-side; nothing in a plan or header can move a write elsewhere.
-- `engini whoami` reports the **login** key's scope; a write lands in the **connection** key's scope. Only
-  `compile_workflow_plan` echoes the latter (`workspaceId` / `environmentId`), so compile and write through the same
-  connection id.
-- A connection that is not an API key is refused on every builder tool with `403 API_KEY_REQUIRED`.
+- **The lookup connection.** The CLI has no folder or workflow list, so resolving a folder or a workflow by name uses
+  the `engini_workflows` tools through `engini tools call` and the user's own `engini_workflows` connection
+  (auth method 1, API key, header `x-api-key`) - the same for a never-verb the user explicitly asks for. Find it with
+  `engini connections list --application engini_workflows --json`; several -> ask which. It must hold a key for the
+  login's workspace and environment: a `get_folders` row with another `workspaceId` / `environmentId` -> STOP. A
+  connection that is not an API key is refused with `403 API_KEY_REQUIRED`. The user creates it; Flo never creates,
+  updates or deletes a connection.
 
 ## 2. The steps' connections inside the account
 
@@ -29,9 +29,9 @@ Each `action` step / trigger has `connection`:
 |---|---|
 | `"auto"` (default) | The designer's own pick rule: the activity's own connector, then the app's non-default connections, then the app's default connection. Credential activities and another account's default connection get none. On an edit, a step keeps its saved connection while it is still usable |
 | `"none"` / `"0"` | No connection - `MISSING_CONNECTION` warning |
-| `"<id>"` | One of `list_builder_connections` for that app in this workspace/env, else `FOREIGN_CONNECTION` |
+| `"<id>"` | One of `engini workflows connections --app <slug>` for that app in this workspace/env, else `FOREIGN_CONNECTION` |
 
-- List them: `engini_workflows_list_builder_connections` `{"app":"<app slug>"}` -> `[{connectionId, name, isDefault}]`.
+- List them: `engini workflows connections --app <app slug>` -> `[{connectionId, name, isDefault, applicationId}]`.
 - With several candidates, propose the choice to the user; do not let `auto` silently pick one they didn't mean.
 - Flo never creates connections. A step without one is created anyway with a `MISSING_CONNECTION` warning; the user
   connects it in the designer.

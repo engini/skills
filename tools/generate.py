@@ -28,6 +28,10 @@ def hook_block(r):
         'ASK_TOKEN = %r' % r['ask_token'],
         'NEVER_VERBS = frozenset(%r)' % sorted(r['never_verbs']),
         'CALL_VALUE_FLAGS = frozenset(%r)' % sorted(r['call_value_flags']),
+        'CLI_KNOWN = {%s}' % ', '.join('%r: frozenset(%r)' % (g, sorted(v)) for g, v in sorted(r['cli_known_verbs'].items())),
+        'CLI_STDIN_VERBS = frozenset(%r)' % sorted(r['cli_stdin_verbs']),
+        'CLI_STDIN_VALUE_FLAGS = frozenset(%r)' % sorted(r['cli_stdin_value_flags']),
+        'CLI_STDIN_BOOL_FLAGS = frozenset(%r)' % sorted(r['cli_stdin_bool_flags']),
         'RAW_KEY_COMMANDS = %r' % (tuple(sorted(tuple(c) for c in r['raw_key_commands'])),),
         'RAW_KEY_FLAGS = %r' % (tuple(r['raw_key_flags']),),
         'KEY_ENV = %r' % ('(?:' + '|'.join(r['key_env_vars']) + ')'),
@@ -50,11 +54,14 @@ def skill_block(r):
 
 
 def readme_block(r):
-    calls = ['Bash(engini tools call %s:*)' % s for s in r['never_verbs']]
+    calls = (['Bash(engini tools call %s:*)' % s for s in r['never_verbs']]
+             + ['Bash(engini %s:*)' % ' '.join(c) for c in r['cli_never_commands']])
+    writes = (['Bash(engini tools call %s:*)' % s for s in r['write_verbs_ask']]
+              + ['Bash(engini %s:*)' % ' '.join(c) for c in r['cli_write_ask']])
     raw = ['Bash(engini %s:*)' % ' '.join(c) for c in r['raw_key_commands']] + ['Bash(engini login --api-key:*)']
     # ask, not deny: the user is asked every time. (With the hook installed it still refuses the raw-key commands
     # when the agent runs them, and tells the agent to hand them to the user.)
-    ask = ['Bash(engini tools call %s:*)' % s for s in r['write_verbs_ask']] + calls + raw
+    ask = writes + calls + raw
     deny = [
         'Read(~/.config/engini/**)',
         'Read(~/AppData/Roaming/engini/**)',
@@ -67,9 +74,15 @@ def readme_block(r):
     rules = ['# Flo: a prompt before every write, before the four never-verbs and before the raw-key commands (decline those and run them yourself).']
     for s in r['write_verbs_ask']:
         rules.append('prefix_rule(pattern = ["engini", "tools", "call", "%s"], decision = "prompt")' % s)
+    for c in r['cli_write_ask']:
+        rules.append('prefix_rule(pattern = %s, decision = "prompt")' % json.dumps(['engini'] + list(c)))
     for s in r['never_verbs']:
         rules.append('prefix_rule(pattern = ["engini", "tools", "call", "%s"], decision = "prompt", '
                      'justification = "Flo calls this only when you asked for exactly this action on this workflow")' % s)
+    for c in r['cli_never_commands']:
+        rules.append('prefix_rule(pattern = %s, decision = "prompt", '
+                     'justification = "Flo calls this only when you asked for exactly this action on this workflow")'
+                     % json.dumps(['engini'] + list(c)))
     for c in r['raw_key_commands']:
         rules.append('prefix_rule(pattern = %s, decision = "prompt", '
                      'justification = "takes or stores a raw API key - decline this, run it in your own terminal outside Codex, never paste the key into the chat")'

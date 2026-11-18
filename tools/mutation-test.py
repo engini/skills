@@ -75,8 +75,25 @@ HOOK_MUTATIONS = [
     ('9a-1 drop a never-verb from the generated constant',
      "'engini_workflows_rerun_execution', ", ''),
     ('9a-2 delete family 1b',
-     'for judge in (judge_call, judge_named, judge_raw_key, judge_env_dump):',
-     'for judge in (judge_call, judge_raw_key, judge_env_dump):'),
+     'for judge in (judge_call, judge_named, judge_cli, judge_raw_key, judge_env_dump):',
+     'for judge in (judge_call, judge_cli, judge_raw_key, judge_env_dump):'),
+    ('9a-47 delete family 1c (the CLI never-verbs pass)',
+     'for judge in (judge_call, judge_named, judge_cli, judge_raw_key, judge_env_dump):',
+     'for judge in (judge_call, judge_named, judge_raw_key, judge_env_dump):'),
+    ('9a-48 an unknown CLI verb passes (deny-list instead of the known-verb list)',
+     'if words[1].lower() not in CLI_KNOWN[group]:', "if words[1].lower() in ('delete',):"),
+    ('9a-49 an unreadable CLI verb passes',
+     "        if not SLUG_SHAPE.match(words[1]):\n            return R_UNREADABLE\n", ''),
+    ('9a-50 a build verb dropped from the generated constant',
+     "frozenset(['columns', 'compile', ", "frozenset(['columns', "),
+    ('9a-51 the CLI plan heredoc strip trusts any flags',
+     "    return stdin and (verb != 'update' or ids == 1)\n", '    return True\n'),
+    ('9a-52 the CLI plan heredoc strip trusts any reader',
+     'return _cli_invocation(seg[:k]) and _plan_stdin(seg[k + 1], seg[k + 2:])', 'return _plan_stdin(seg[k + 1], seg[k + 2:])'),
+    ('9a-53 the CLI plan heredoc strip takes a plan file',
+     "                if v != '-':\n                    return False\n", ''),
+    ('9a-54 redirections are taken as the CLI verb',
+     '            elif REDIRECT.match(t):\n                skip = REDIRECT.fullmatch(t) is not None\n', ''),
     ('9a-3 check only the token right after call',
      'for tok in candidates(seg, i + 1):', 'for tok in seg[i + 2:i + 3]:'),
     ('9a-4 metacharacter blacklist instead of the slug shape test',
@@ -209,15 +226,28 @@ def main():
 
     def m_gen_verbs_deny(d):
         # the generator itself drifts (blocks stay "current"): the four never-verbs land in deny, not ask
-        edit(d, 'tools/generate.py', "ask = ['Bash(engini tools call %s:*)' % s for s in r['write_verbs_ask']] + calls + raw",
-             "ask = ['Bash(engini tools call %s:*)' % s for s in r['write_verbs_ask']] + raw")
+        edit(d, 'tools/generate.py', "    ask = writes + calls + raw\n", "    ask = writes + raw\n")
         edit(d, 'tools/generate.py', "    deny = [\n", "    deny = calls + [\n")
         regen(d)
 
     def m_gen_raw_deny(d):
-        edit(d, 'tools/generate.py', "] + calls + raw\n", "] + calls\n")
+        edit(d, 'tools/generate.py', "    ask = writes + calls + raw\n", "    ask = writes + calls\n")
         edit(d, 'tools/generate.py', "    deny = [\n", "    deny = raw + [\n")
         regen(d)
+
+    def m_gen_cli_never_dropped(d):
+        # the CLI forms of the never-verbs drop out of the settings ask list and the Codex rules
+        edit(d, 'tools/generate.py', "+ ['Bash(engini %s:*)' % ' '.join(c) for c in r['cli_never_commands']])",
+             ")")
+        edit(d, 'tools/generate.py', "    for c in r['cli_never_commands']:\n", "    for c in []:\n")
+        regen(d)
+
+    def m_gen_cli_writes_dropped(d):
+        edit(d, 'tools/generate.py', "+ ['Bash(engini %s:*)' % ' '.join(c) for c in r['cli_write_ask']])", ")")
+        regen(d)
+
+    def m_toolmap_cli_drift(d):
+        edit(d, 'plugin/skills/build-engini-workflow/references/tool-map.md', '`engini workflows options', '`engini workflows opts', count=99)
 
     def m_gen_codex_raw_forbid(d):
         # the old behaviour: Codex forbids the raw-key commands instead of asking
@@ -256,6 +286,9 @@ def main():
         ('16-4 SKILL.md tells Flo ! is fine for a key command', m_prose_bang, 'rules'),
         ('16-5 agent-rules.md drops "only when the user explicitly asks"', m_prose_unasked, 'rules'),
         ('16-6 tool-map.md row back to NEVER', m_toolmap_never, 'rules'),
+        ('16-7 generator drops the CLI never-verb forms (blocks regenerated)', m_gen_cli_never_dropped, 'rules'),
+        ('16-8 generator drops the CLI writes from ask (blocks regenerated)', m_gen_cli_writes_dropped, 'rules'),
+        ('16-9 tool-map.md no longer names a CLI build command', m_toolmap_cli_drift, 'rules'),
     ]:
         d = copy_repo()
         fn(d)

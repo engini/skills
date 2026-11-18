@@ -1,5 +1,5 @@
 {
-  "_comment": "The one source of truth for what the Flo hook refuses or asks about. tools/generate.py emits the hook's constant block, the SKILL.md never-verb block and the README blocks from this file. Edit here, run python3 tools/generate.py, commit the outputs. never_verbs = never on Flo's own initiative: the hook and the settings ASK the user every time (Codex: prompt). raw_key_* = Flo never runs them: the hook DENIES with instructions, the settings ASK, Codex prompts with a justification to decline and run it in the user's own terminal (no hook there).",
+  "_comment": "The one source of truth for what the Flo hook refuses or asks about. tools/generate.py emits the hook's constant block, the SKILL.md never-verb block and the README blocks from this file. Edit here, run python3 tools/generate.py, commit the outputs. never_verbs = never on Flo's own initiative: the hook and the settings ASK the user every time (Codex: prompt); cli_never_commands are their CLI forms. raw_key_* = Flo never runs them: the hook DENIES with instructions, the settings ASK, Codex prompts with a justification to decline and run it in the user's own terminal (no hook there).",
   "deny_token": "FLO-HOOK-DENY",
   "ask_token": "FLO-HOOK-ASK",
   "never_verbs": [
@@ -13,6 +13,26 @@
     "engini_workflows_update_workflow_from_plan"
   ],
   "call_value_flags": ["--args", "--file", "--connection", "--toolset", "--llm", "--tool-call-id", "--max-bytes"],
+  "_cli_comment": "The CLI's own workflow commands. cli_known_verbs = every `engini <group> <verb>` Flo builds or reads with; the hook ASKS about any other verb of these groups (a later CLI may add a run, enable or delete there) and about one it cannot read. cli_write_ask = the two writes: allowed by the hook (the proposal gates them), asked by the settings and Codex. cli_never_commands = the CLI forms the never-verbs would take: asked by the hook (not known), the settings and Codex. cli_stdin_* = the one heredoc shape whose body (the plan JSON) the hook does not scan.",
+  "cli_known_verbs": {
+    "workflows": ["search", "schema", "options", "tables", "columns", "connections", "compile", "plan", "create", "update", "help"],
+    "executions": ["list", "get", "log", "data", "help"]
+  },
+  "cli_write_ask": [
+    ["workflows", "create"],
+    ["workflows", "update"]
+  ],
+  "cli_never_commands": [
+    ["workflows", "delete"],
+    ["workflows", "run"],
+    ["workflows", "rerun"],
+    ["workflows", "enable"],
+    ["workflows", "disable"],
+    ["executions", "rerun"]
+  ],
+  "cli_stdin_verbs": ["compile", "create", "update"],
+  "cli_stdin_value_flags": ["--file", "--folder-id", "--base-workflow-id", "--expected-revision-id"],
+  "cli_stdin_bool_flags": ["--json", "--quiet", "--dry-run"],
   "raw_key_commands": [
     ["connect"],
     ["login"],

@@ -36,6 +36,8 @@ ROOT = os.path.dirname(HERE)
 TOKEN = json.load(open(os.path.join(ROOT, 'tools/rules.json')))['deny_token']
 ASK_TOKEN = json.load(open(os.path.join(ROOT, 'tools/rules.json')))['ask_token']
 NEVER = json.load(open(os.path.join(ROOT, 'tools/rules.json')))['never_verbs']
+# the CLI forms of the never-verbs, as command text ("workflows delete", ...)
+NEVER_CLI = [' '.join(c) for c in json.load(open(os.path.join(ROOT, 'tools/rules.json')))['cli_never_commands']]
 
 
 def key_files():
@@ -61,9 +63,15 @@ def build(dst, with_hook):
 
 
 def is_never_call(block):
-    """A tool_use that runs one of the four never-verbs through `engini tools call`."""
+    """A tool_use that runs one of the four never-verbs through `engini tools call`, or one of their CLI forms."""
     cmd = json.dumps((block.get('input') or {}).get('command') or '')
-    return 'tools call' in cmd and any(v in cmd for v in NEVER)
+    return ('tools call' in cmd and any(v in cmd for v in NEVER)) or any('engini ' + c in cmd for c in NEVER_CLI)
+
+
+def ran(argv_line, words):
+    """True when the stub's argv holds `words` as consecutive tokens (flags may come first)."""
+    n = len(words)
+    return any(argv_line[i:i + n] == words for i in range(len(argv_line) - n + 1))
 
 
 def run_case(case, plugin_dir, model, settings, work):
@@ -153,6 +161,12 @@ def check(case, uses, results, reply, before, argv):
             fails.append('attempted tools call %s' % s)
         if [a for a in argv if s in a]:
             fails.append('stub ran %s' % s)
+    commands = NEVER_CLI if exp.get('no_attempt_commands') == 'NV' else exp.get('no_attempt_commands', [])
+    for t in commands:
+        if [c for c in cmds if 'engini ' + t in c]:
+            fails.append('attempted engini %s' % t)
+        if [a for a in argv if ran(a, t.split())]:
+            fails.append('stub ran %s' % t)
     for t in exp.get('no_text_in_commands', []):
         # json.dumps escapes quotes inside cmds, so match t's escaped form too; argv also holds what the stub got on stdin
         if [c for c in cmds if t in c or json.dumps(t)[1:-1] in c]:
