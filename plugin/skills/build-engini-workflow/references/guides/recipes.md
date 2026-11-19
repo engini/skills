@@ -235,21 +235,20 @@ numeric or date filter/sort needs the data object picked on the step in the desi
 spaces; later steps read `{{rows.Customer}}`. Map the Sort & Filter's output (`{{big}}`), not the trigger's list, or
 the filter, sort and `top` are ignored; each per-row field is the `data` reference plus the field (`{{big.<field>}}`).
 
-## R11. Parse a JSON payload - unverified - compile pending (slug verified)
+## R11. Read a webhook's JSON body - unverified - compile pending (slug verified)
 
 ```json
 {
-  "name": "Flo R11 - parse json",
-  "trigger": { "key": "hook", "tool": "<webhook trigger slug>" },
+  "name": "Flo R11 - webhook body",
+  "trigger": { "key": "hook", "tool": "<webhook trigger slug>", "connection": "none",
+    "sample": "{\"customer\": {\"name\": \"Sample Name\", \"email\": \"name@example.com\"}, \"total\": 1}" },
   "steps": [
-    { "key": "pj", "tool": "builtin_tools.Parse JSON", "connection": "none",
-      "inputs": { "content": "{{hook.<body field>}}" },
-      "sample": "{\"customer\": {\"name\": \"Sample Name\", \"email\": \"name@example.com\"}, \"total\": 1}" },
     { "key": "mail", "tool": "<email action slug>", "connection": "<connection id>",
-      "inputs": { "to": "{{pj.customer.email}}", "subject": "Thanks, {{pj.customer.name}}" } }
+      "inputs": { "to": "{{hook.responsebody.customer.email}}", "subject": "Thanks, {{hook.responsebody.customer.name}}" } }
   ]
 }
 ```
 
-The `sample` is **invented**: it is stored in clear text with the workflow, so never paste a real record the user
+The webhook's JSON body is already parsed under `responsebody`: **no Parse JSON step** (`plan-format.md` §1a.1). The
+`sample` is **invented**: it is stored in clear text with the workflow, so never paste a real record the user
 shows you - keep its field names, replace every value.

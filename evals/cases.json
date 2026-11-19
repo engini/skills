@@ -226,10 +226,11 @@
           "4210.5"
         ],
         "reply_contains": [
-          "sample"
+          "sample",
+          "responsebody"
         ]
       },
-      "_note": "Parse JSON's sample is stored in clear text with the workflow: Flo invents it from the field names and never pastes the real record. Not yet run. The stub catalog has no block or built-in tool slugs, so this measures what Flo designs and says, not a real compile."
+      "_note": "The webhook trigger takes a sample (stored in clear text with the workflow): Flo invents it from the field names, never pastes the real record, reads the body as {{hook.responsebody.<field>}} and adds no Parse JSON step. Not yet run. The stub catalog has no block or built-in tool slugs, so this measures what Flo designs and says, not a real compile."
     },
     {
       "id": "wire-never-verb",

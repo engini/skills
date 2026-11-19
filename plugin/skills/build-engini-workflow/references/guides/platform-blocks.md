@@ -25,6 +25,7 @@ Built-in tools that are plain `action` steps (a `tool` slug from `search_builder
 | Sort & Filter (`builtin_tools.Sort & Filter`) | `inputs.data` (the list), `filters`, `sorts`, `top`, `advancedFilter`, `offset` | the kept records: `{{sf.<field>}}` (fields not checked) |
 | Map Array (`builtin_tools.MapArray`) | `inputs.data` (the list), `subItems.properties` (one row: output column -> value) | a list with one field per column: `{{map.<Column>}}` |
 | Parse JSON (`builtin_tools.Parse JSON`) | `inputs.content` (the text to parse), `sample`, optional `mapDictionary` | the fields of `sample`: `{{pj.<field>}}` |
+| Webhook trigger (`http.Webhook`, a trigger, not an action) | `sample` (a made-up body; no `mapDictionary`), see `plan-format.md` §1a.1 | the request body, already parsed, with no Parse JSON step: `{{hook.responsebody.<field>}}` |
 
 Option ids (confirm live):
 - `TYPE` (VARTYPE): `string`, `integer`, `numeric`, `bool`, `datetime`, `array`, `object`. **Not** `Text`/`String`.
