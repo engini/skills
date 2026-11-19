@@ -14,8 +14,8 @@
         "source": "git-subdir",
         "url": "https://github.com/engini/skills.git",
         "path": "plugin",
-        "ref": "v0.8.0",
-        "sha": "26c6f7bcb211472a073868e4b452187cd11365dd"
+        "ref": "v0.9.0",
+        "sha": "d993eb01d428731ad8fdb941426904f46a113204"
       },
       "description": "Flo builds and edits Engini workflows in your own Engini account. Proposes before it writes; workflows are always created turned off."
     }
