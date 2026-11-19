@@ -13,7 +13,7 @@ honest limit of every safety measure below.
 | You need | Version | Why |
 |---|---|---|
 | An Engini account and a **workspace-scoped Developer API key** | - | Flo can only write with a key scoped to one workspace and environment. Ask for a dedicated, least-privilege key: a key carries its creator's whole permission set |
-| The Engini CLI: `npm i -g @engini/cli` | **0.30.0 or later** | every Flo call goes through it (`engini workflows` arrived in 0.30.0) |
+| The Engini CLI: `npm i -g @engini/cli` | **0.31.0 or later** | every Flo call goes through it (`engini workflows` arrived in 0.30.0, its `list` and `folders` in 0.31.0) |
 | Claude Code | **2.1.316 or later** (the version this release was tested on) | |
 | Python | **3.8 or later**, as `python3` or `python` | Claude Code only: runs Flo's guard hook (below) |
 | Codex | supported | see "Codex" below |
@@ -80,9 +80,8 @@ prompt, that is a real delete on your account.
    and environment this login is scoped to (`engini whoami` shows it); to build somewhere else, log in again with
    that workspace's key.
 2. Optional: `engini connect engini_workflows` - choose **auth method 1 (`x-api-key`)** and paste a key for the same
-   workspace. Flo needs this connection only to find a folder or an existing workflow **by name** (the CLI has no
-   list for those yet) and for a turn-on, run, rerun or delete you explicitly ask for. Without it, Flo creates the
-   workflow outside a folder, and for an edit asks you for the workflow's id from its designer address.
+   workspace. Flo needs this connection only for a turn-on, run, rerun or delete you explicitly ask for. Building,
+   editing and finding a folder or an existing workflow by name all run on your login alone.
 
 Run them yourself **in your own terminal, outside Claude Code or Codex** - not with Claude Code's `!` prefix. The CLI
 hides the key you type only when its input is a terminal, and in Claude Code's `!` mode it is not (`process.stdin.isTTY`

@@ -6,8 +6,8 @@ Flo stops and tells you when one of these comes back. What **you** do:
 
 | Error | What it means | What you do |
 |---|---|---|
-| 403 `API_KEY_REQUIRED` | Your CLI login is not a Developer API key (or, for a folder/workflow lookup, your `engini_workflows` connection does not use one). This is the most likely first-run failure | In your own terminal: `engini login` with a **workspace-scoped** Developer API key. For the lookup connection: `engini connect engini_workflows`, choose **auth method 1 (`x-api-key`)** and paste a key for the same workspace. Then start Flo again. Changing anything else does not help |
-| 400 `SCOPE_REQUIRED` | Your key is not scoped to a workspace and environment. Writes always refuse it | Issue a workspace-scoped key in Engini and log in again with it (`engini login`, your own terminal); re-create the lookup connection with it too if you use one |
+| 403 `API_KEY_REQUIRED` | Your CLI login is not a Developer API key (or, for a turn-on, run, rerun or delete you asked for, your `engini_workflows` connection does not use one). This is the most likely first-run failure | In your own terminal: `engini login` with a **workspace-scoped** Developer API key. For the `engini_workflows` connection: `engini connect engini_workflows`, choose **auth method 1 (`x-api-key`)** and paste a key for the same workspace. Then start Flo again. Changing anything else does not help |
+| 400 `SCOPE_REQUIRED` | Your key is not scoped to a workspace and environment. Writes always refuse it | Issue a workspace-scoped key in Engini and log in again with it (`engini login`, your own terminal); re-create your `engini_workflows` connection with it too if you have one |
 | 403 `PERMISSION_DENIED` | The key's user may not create or edit workflows in that workspace | Ask your Engini account admin for the permission, or use a key from a user who has it |
 | 400 `INVALID_REQUEST` | Flo sent a malformed request | Flo fixes this himself; if it repeats, report it with the message |
 | 404 `SLUG_NOT_FOUND` | A tool Flo asked for does not exist for your account | Usually an outdated plugin or CLI: update both. Flo re-searches the catalog |
@@ -39,11 +39,12 @@ Flo stops and tells you when one of these comes back. What **you** do:
 | Symptom | Cause | What you do |
 |---|---|---|
 | `engini: command not found` | The CLI is not installed or not on your path | `npm i -g @engini/cli`, then open a new terminal |
-| Flo says the CLI is too old | Below 0.30.0, `engini workflows` is missing, or `engini whoami --json` has no `workspace` key | `npm i -g @engini/cli@latest` |
+| Flo says the CLI is too old | Below 0.31.0, `engini workflows` (or its `list` / `folders`) is missing, or `engini whoami --json` has no `workspace` key | `npm i -g @engini/cli@latest` |
 | Flo says you are not logged in | No saved login | Run `engini login` yourself (interactive) |
 | Flo says the key is not scoped | `engini whoami` shows no workspace | Log in with a workspace-scoped key |
 | Flo builds in the wrong account, or stops because the account is not the one you named | The CLI is logged into another account, workspace or environment (`engini whoami`) | `engini login` in your own terminal with the key of the workspace you want, then ask again |
-| Flo asks for an `engini_workflows` connection | You asked for a folder or an existing workflow by name; the CLI cannot list those yet | `engini connect engini_workflows`, auth method 1 (`x-api-key`), a key for the same workspace, in your own terminal - or let Flo create the workflow outside a folder, or give him the workflow id from its designer address |
+| Flo asks for an `engini_workflows` connection | You asked him to turn a workflow on or off, run it, rerun an execution or delete a workflow; those have no CLI command | `engini connect engini_workflows`, auth method 1 (`x-api-key`), a key for the same workspace, in your own terminal - or do it yourself in the Engini app |
+| Flo cannot find a folder or workflow you named | No name, or more than one, in `engini workflows folders` / `engini workflows list` matches it in this workspace and environment (a table automation is never listed) | Give the exact name (Flo lists what he found), check `engini whoami`, or give him the workflow id from its designer address (`.../workflows/<id>/edit`) |
 | A step shows "no connection" in the proposal | You have no connection for that app in this workspace | Connect the app in Engini, or connect the step in the designer after Flo creates the workflow |
 | A dropdown that depends on another field is empty | Its options load only after the first field is set | Fill it in the designer; Flo lists every field it left empty |
 | The account or workspace is not the one you expected | `ENGINI_API_KEY` is set in your environment and overrides your saved login | Unset it, or make it the key you meant |

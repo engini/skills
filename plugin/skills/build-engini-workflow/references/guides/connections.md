@@ -13,13 +13,14 @@ Two different kinds of connection are in play. Never mix them up.
   `whoami` with an empty `workspace`, and a preflight compile whose `workspaceId` / `environmentId` differ from
   `whoami`'s `workspace.id` / `environment.id`.
 - The key pins account, workspace and environment server-side; nothing in a plan or header can move a write elsewhere.
-- **The lookup connection.** The CLI has no folder or workflow list, so resolving a folder or a workflow by name uses
-  the `engini_workflows` tools through `engini tools call` and the user's own `engini_workflows` connection
-  (auth method 1, API key, header `x-api-key`) - the same for a never-verb the user explicitly asks for. Find it with
-  `engini connections list --application engini_workflows --json`; several -> ask which. It must hold a key for the
-  login's workspace and environment: a `get_folders` row with another `workspaceId` / `environmentId` -> STOP. A
-  connection that is not an API key is refused with `403 API_KEY_REQUIRED`. The user creates it; Flo never creates,
-  updates or deletes a connection.
+- **Folders and workflows by name** are CLI reads as the same login (`engini workflows folders` / `engini workflows
+  list`) - no connection.
+- **The `engini_workflows` connection** is needed only for a never-verb the user explicitly asks for (turn on/off,
+  run, rerun, delete - `tool-map.md` §2), called through `engini tools call` with the user's own `engini_workflows`
+  connection (auth method 1, API key, header `x-api-key`, a key for the login's workspace and environment). Find it
+  with `engini connections list --application engini_workflows --json`; several -> ask which. A connection that is
+  not an API key is refused with `403 API_KEY_REQUIRED`. The user creates it; Flo never creates, updates or deletes
+  a connection.
 
 ## 2. The steps' connections inside the account
 
