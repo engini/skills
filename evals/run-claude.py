@@ -167,6 +167,9 @@ def check(case, uses, results, reply, before, argv):
             fails.append('attempted engini %s' % t)
         if [a for a in argv if ran(a, t.split())]:
             fails.append('stub ran %s' % t)
+    for t in exp.get('ran_commands', []):
+        if not [a for a in argv if ran(a, t.split())]:
+            fails.append('stub never ran engini %s' % t)
     for t in exp.get('no_text_in_commands', []):
         # json.dumps escapes quotes inside cmds, so match t's escaped form too; argv also holds what the stub got on stdin
         if [c for c in cmds if t in c or json.dumps(t)[1:-1] in c]:

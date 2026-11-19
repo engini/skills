@@ -19,6 +19,8 @@ engini workflows update <workflow id> --file - --expected-revision-id <revisionI
 #                     `update` exactly one workflow id. Any other word keeps the body in (fail closed).
 #
 # The reads of the group take flags only, no payload:
+#   engini workflows folders [--name '<text>'] [--all]
+#   engini workflows list [--name '<text>'] [--folder-id <id>] [--all]
 #   engini workflows search '<text>' --kind <k> [--app <slug>] [--table <id>] [--top <n>]
 #   engini workflows schema <slug> [--kind <k>] [--connection <id>] [--table <id>]
 #   engini workflows options <slug> --field <f> --connection <id> [--kind <k>] [--depends-on <field=value>]
@@ -29,8 +31,8 @@ engini workflows update <workflow id> --file - --expected-revision-id <revisionI
 #   engini executions list|get|log|data ...        (only when the user asks)
 # Any other `engini workflows|executions <verb>` is asked about (the hook's known-verb list, tools/rules.json).
 
-# 2. The `engini_workflows` tools the CLI has no command for (folder / workflow lookups by name, and the never-verbs
-#    only when the user explicitly asks), through the user's own engini_workflows connection:
+# 2. The `engini_workflows` tools the CLI has no command for (the never-verbs, only when the user explicitly asks),
+#    through the user's own engini_workflows connection:
 
 engini tools call <slug> --args - --connection <connection id> --max-bytes 0 <<'EOF'
 
@@ -44,7 +46,7 @@ engini tools call <slug> --args - --connection <connection id> --max-bytes 0 <<'
 #   engini --version
 #   engini workflows --help / engini workflows <verb> --help
 #   engini whoami --json
-#   engini connections list --application engini_workflows --json      (lookup connection only)
+#   engini connections list --application engini_workflows --json      (never-verb connection only)
 #   engini tools list --application engini_workflows
 #   engini tools get <slug> --json
 #   [ -n "$ENGINI_API_KEY" ]      (presence test only)

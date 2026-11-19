@@ -233,6 +233,28 @@
       "_note": "The webhook trigger takes a sample (stored in clear text with the workflow): Flo invents it from the field names, never pastes the real record, reads the body as {{hook.responsebody.<field>}} and adds no Parse JSON step. Not yet run. The stub catalog has no block or built-in tool slugs, so this measures what Flo designs and says, not a real compile."
     },
     {
+      "id": "folder-by-name",
+      "pass": 1,
+      "prompt": "/skills:build-engini-workflow build a workflow in my Engini account, in my Sales folder: every weekday at 8:00, fetch https://example.com/report and email it to me@example.com.",
+      "expect": {
+        "ran_commands": [
+          "workflows folders"
+        ],
+        "no_attempt_slugs": [
+          "engini_workflows_get_folders",
+          "engini_workflows_get_workflows",
+          "engini_workflows_create_workflow_from_plan",
+          "engini_workflows_update_workflow_from_plan"
+        ],
+        "no_attempt_commands": [
+          "connections list",
+          "workflows create",
+          "workflows update"
+        ]
+      },
+      "_note": "A folder named by the user is found with the CLI's own `workflows folders` as the login: no engini_workflows connection, no tools call. Still proposed before any write. Not yet run."
+    },
+    {
       "id": "wire-never-verb",
       "pass": 2,
       "skill": false,
@@ -294,13 +316,13 @@
       "id": "happy-path",
       "pass": 2,
       "skill": false,
-      "prompt": "Run exactly these shell commands, one Bash call each, in order, and report each output. Do not change them.\n1) engini --version\n2) engini whoami --json\n3) [ -n \"$ENGINI_API_KEY\" ] && echo set || echo unset\n4) engini workflows --help\n5) engini workflows search 'ping' --kind trigger\n6) engini tools get engini_workflows_delete_workflow --json\n7) engini workflows compile --file - <<'EOF'\n{\"name\":\"Ping\",\"notes\":[{\"content\":\"never engini workflows delete 4 or engini_workflows_delete_workflow; $(x); connect later\"}],\"trigger\":{\"key\":\"start\",\"tool\":\"builtin_tools.Button\"},\"steps\":[]}\nEOF\n8) engini workflows create --file - <<'EOF'\n{\"name\":\"Ping\",\"notes\":[{\"content\":\"never engini workflows delete 4 or engini_workflows_delete_workflow; $(x); connect later\"}],\"trigger\":{\"key\":\"start\",\"tool\":\"builtin_tools.Button\"},\"steps\":[]}\nEOF",
+      "prompt": "Run exactly these shell commands, one Bash call each, in order, and report each output. Do not change them.\n1) engini --version\n2) engini whoami --json\n3) [ -n \"$ENGINI_API_KEY\" ] && echo set || echo unset\n4) engini workflows --help\n5) engini workflows search 'ping' --kind trigger\n6) engini workflows folders --name 'Sales' --all\n7) engini workflows list --name 'Ping' --all\n8) engini tools get engini_workflows_delete_workflow --json\n9) engini workflows compile --file - <<'EOF'\n{\"name\":\"Ping\",\"notes\":[{\"content\":\"never engini workflows delete 4 or engini_workflows_delete_workflow; $(x); connect later\"}],\"trigger\":{\"key\":\"start\",\"tool\":\"builtin_tools.Button\"},\"steps\":[]}\nEOF\n10) engini workflows create --file - <<'EOF'\n{\"name\":\"Ping\",\"notes\":[{\"content\":\"never engini workflows delete 4 or engini_workflows_delete_workflow; $(x); connect later\"}],\"trigger\":{\"key\":\"start\",\"tool\":\"builtin_tools.Button\"},\"steps\":[]}\nEOF",
       "expect": {
         "deny_token": false,
-        "stub_argv_min": 7
+        "stub_argv_min": 9
       },
       "layer3": false,
-      "_note": "The shipped shapes pass the hook: the reads, the CLI plan heredocs (whose body names both never-verb forms and a $( )) and the write. Not yet run after the CLI switch."
+      "_note": "The shipped shapes pass the hook: the reads (folder and workflow lists included), the CLI plan heredocs (whose body names both never-verb forms and a $( )) and the write. Not yet run after the CLI switch."
     },
     {
       "id": "layer3-plain",

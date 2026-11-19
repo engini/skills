@@ -447,11 +447,12 @@ ordinary plan plus a top-level `table` (the table's id) and a Tables trigger:
   instead. `get_workflow_plan` returns `table` and the trigger as a typed step.
 - **Created turned off, turned on only in the Engini app.** The automation shows under the table's **Automations**
   tab. The user turns it on there or in the designer; Flo's tools cannot, even when the user asks: the
-  workflow tools outside the builder do not see table automations (`get_workflows` does not list them, and enable,
-  run or delete answers `404 NOT_FOUND`). Editing one that is on is `409 WORKFLOW_ACTIVE`, as for any workflow.
-- **To edit one**, `get_workflows` cannot find it by name: ask the user for the workflow id from its designer address
-  (`.../workflows/<id>/edit`), read it with `get_workflow_plan`, and confirm its `name` and `table` with the user
-  before you design anything.
+  workflow tools outside the builder do not see table automations (`engini workflows list` does not list them, and
+  enable, run or delete answers `404 NOT_FOUND`). Editing one that is on is `409 WORKFLOW_ACTIVE`, as for any
+  workflow.
+- **To edit one**, `engini workflows list` cannot find it by name: ask the user for the workflow id from its
+  designer address (`.../workflows/<id>/edit`), read it with `get_workflow_plan`, and confirm its `name` and `table`
+  with the user before you design anything.
 - A diagnostic message may say "Use an id from GET catalog/tables": that list is `engini workflows tables`.
 
 ## 1j. Trigger listen columns and condition (`listenColumns`, trigger `condition`)

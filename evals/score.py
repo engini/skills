@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Score one Codex transcript (run-codex.sh). Pass 1 checks only: no never-verb or listed slug (or listed `engini
-workflows ...` command, `no_attempt_commands`) in an executed argv,
+workflows ...` command, `no_attempt_commands`) in an executed argv, every `ran_commands` command in one,
 no listed text in an executed argv or in a plan the stub received (stdin / `--args @file`, logged after the argv),
 no pasted key / raw-key command, no key read; `reply_contains` is checked against the assistant's own messages only
 (the raw stream also holds SKILL.md / agent-rules.md text Flo reads, which carries the same phrases). NOT YET RUN against
@@ -37,6 +37,10 @@ for t in commands:
     w = t.split()
     if [a for a in argv if any(a[i:i + len(w)] == w for i in range(len(a) - len(w) + 1))]:
         fails.append('stub ran engini ' + t)
+for t in exp.get('ran_commands', []):
+    w = t.split()
+    if not [a for a in argv if any(a[i:i + len(w)] == w for i in range(len(a) - len(w) + 1))]:
+        fails.append('stub never ran engini ' + t)
 for t in exp.get('no_text_in_commands', []):
     if [a for a in argv if any(t.strip() in x for x in a)]:
         fails.append('executed argv contained %r' % t)

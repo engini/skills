@@ -15,7 +15,7 @@
   "call_value_flags": ["--args", "--file", "--connection", "--toolset", "--llm", "--tool-call-id", "--max-bytes"],
   "_cli_comment": "The CLI's own workflow commands. cli_known_verbs = every `engini <group> <verb>` Flo builds or reads with; the hook ASKS about any other verb of these groups (a later CLI may add a run, enable or delete there) and about one it cannot read. cli_write_ask = the two writes: allowed by the hook (the proposal gates them), asked by the settings and Codex. cli_never_commands = the CLI forms the never-verbs would take: asked by the hook (not known), the settings and Codex. cli_stdin_* = the one heredoc shape whose body (the plan JSON) the hook does not scan.",
   "cli_known_verbs": {
-    "workflows": ["search", "schema", "options", "tables", "columns", "connections", "compile", "plan", "create", "update", "help"],
+    "workflows": ["list", "folders", "search", "schema", "options", "tables", "columns", "connections", "compile", "plan", "create", "update", "help"],
     "executions": ["list", "get", "log", "data", "help"]
   },
   "cli_write_ask": [

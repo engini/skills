@@ -1,7 +1,7 @@
 # Builder command map (`engini workflows`) and the `engini_workflows` tools
 
-Every builder step is an `engini workflows` command of the `engini` CLI (0.30.0 or later), run as the account the
-CLI is logged into - no connection. The flags below were read from `engini workflows <verb> --help`; re-check before
+Every builder step, and finding a folder or a workflow by name, is an `engini workflows` command of the `engini` CLI
+(0.31.0 or later), run as the account the CLI is logged into - no connection. The flags below were read from `engini workflows <verb> --help`; re-check before
 the first call of a run - the live help wins over this file:
 
 ```bash
@@ -34,6 +34,8 @@ read through to the connected system - never a door into the account.
 | `get_builder_tool_schema` | `engini workflows schema <slug>` | `--kind`, `--connection <id>` (add both for an action/trigger: live per-connection read; leave them out for a `block.*`), `--table <table id>` | Input/output schema + `dynamicFields` (the dropdown fields) + `subItems` (row tables like Http Queries/Headers: `tables`/`fields`/`manyRows` - never inputs). A trigger's schema also carries `triggerGates` (`supportsListenColumns` / `supportsCondition`, plan-format §1j) |
 | `get_builder_field_options` | `engini workflows options <slug> --field <field> --connection <id>` | `--kind`, `--depends-on <parent field>=<value>` (repeatable, for a field whose list depends on another) | Option `{id, label}` list of ONE dropdown field, read through one of the user's connections. Also serves a filter field with `hasOptions` (field = the filter field). Slug `model.{provider}` + field `model` reads an AI agent's model list through the model connection (404 `UNKNOWN_FIELD` for `model.azure_openai`; 502 when the list cannot be read) |
 | `list_builder_connections` | `engini workflows connections --app <slug>` | `--app` required (exact catalog app slug or `app-{id}`; also `model.{provider}`: the connections an AI agent's model of that provider can run on) | The user's connections of one app in the login's workspace/environment: `[{connectionId, name, isDefault, applicationId}]`. The catalog can hold duplicate/draft/test apps: prefer the plain slug |
+| (list workflows) | `engini workflows list` | `--name <text>` (case-insensitive substring), `--folder <exact folder name>` or `--folder-id <id>` (`0` = in no folder), `--top <n>` (default and max 100), `--offset <n>`, `--all` (every page; not with `--top` / `--offset`) | The login's workflows, no steps: `{items, totalCount, offset, top}` (`--all`: `{items, totalCount}`), each item `{workflowId, name, folderId, folderName, type, enabled, blocked, workspace: {id, name}, environment: {id, name, type}, ...}`. Deleted workflows and table automations are not listed. Resolves a workflow by name (`SKILL.md` §1) |
+| (list folders) | `engini workflows folders` | `--name <text>` (case-insensitive substring), `--top`, `--offset`, `--all` | The login's workflow folders: `{items, totalCount, offset, top}`, each item `{id, name, workspaceId, environmentId, itemsCount, ...}`. `id` is the `--folder-id` of `create` and `list`. Names are unique only per workspace and environment |
 | (tables) | `engini workflows tables` | - | The user's tables in this workspace/environment: `[{id, name}]` (plan-format §1i) |
 | (columns) | `engini workflows columns <table id>` | `--trigger <Tables trigger slug>` | A table's columns as that trigger reads them: `[{name, label, type, outputs}]` - `name` is the field name a plan references (plan-format §1i) |
 | `compile_workflow_plan` | `engini workflows compile --file - <<'EOF'` | `--base-workflow-id <id>` (when editing) | Dry run: compile + validate, saves nothing (may read the vendor for dropdown labels). Returns `{name, steps, jumps, diagnostics, keyMap, hasErrors, workspaceId, environmentId}` - the last two are the login's scope, where a write lands; credential-looking inputs show `***`. A plan with errors is printed (`hasErrors: true`), not failed |
@@ -63,41 +65,38 @@ Notes:
 - **Table automations** (`plan-format.md` §1i): `tables` lists the user's tables, `columns <table id> --trigger
   <slug>` a table's columns by field name, and `search --table <table id>` shows that table's Tables triggers and
   actions (a plain search does not). Compile and the two writes take the plan's `table`. A table automation is
-  reachable through the builder commands only: `get_workflows` and `get_workflow` do not return it, and enable, run
-  and delete answer `404 NOT_FOUND` for it.
+  reachable through the builder commands only: `engini workflows list` and `get_workflow` do not return it, and
+  enable, run and delete answer `404 NOT_FOUND` for it.
 - `create --dry-run` / `update --dry-run` preview the request without sending it; they are not a compile.
+- **Name lookups** (`SKILL.md` §1): pass the name the user gave (`--name 'Invoices'`), then match it yourself on the
+  returned `name` (exact, case-insensitive). Exactly one match -> use its id (a workflow: read it with `engini
+  workflows plan <id>`; a 404 there means it is not in the login's scope: STOP). Zero or several -> STOP, list the
+  candidates, ask. Without `--all` you get one page: when `totalCount` is larger than the items, add `--all`.
+  `engini workflows list --name '<name>'` is also the "nothing was written" check after a dry run.
 
-## 2. Other `engini_workflows` tools (no CLI command yet)
+## 2. Other `engini_workflows` tools (no CLI command)
 
-These run through `engini tools call` and need the user's own `engini_workflows` connection (auth method 1, API key
-`x-api-key`, the same workspace and environment as the login - check with a `get_folders` row's `workspaceId` /
-`environmentId` against `engini whoami`). The arguments go through stdin; nothing is written to disk:
+Flo needs none of these to build or edit: every read he uses is a §1 command. The only ones he ever calls are the
+never-verbs, and only when the user explicitly asks (rule 1). They run through `engini tools call` and need the
+user's own `engini_workflows` connection (auth method 1, API key `x-api-key`, the same workspace and environment as
+the login; `engini connections list --application engini_workflows --json`, several -> ask which). The arguments go
+through stdin; nothing is written to disk:
 
 ```bash
 engini tools call engini_workflows_<verb> --args - --connection <connection id> --max-bytes 0 <<'EOF'
-{"name":"Invoices"}
+{"workflowId":123}
 EOF
 ```
 
 `--max-bytes 0` keeps results out of the CLI's local result cache. Ids are JSON numbers. Before the first call of a
 run, `engini tools get engini_workflows_<verb> --json` (its `input_schema` wins over this file).
 
-Name lookups (read-only, used by the preflight to resolve a folder or workflow the user names):
-
-| Slug | Arguments (all optional) | Returns |
-|---|---|---|
-| `engini_workflows_get_folders` | `name`, `type`, `createdAt`, `Filters` (`[{FieldName, Operator: IsEquals\|Contains, Value}]`), `SelectTop`, `Sorts` (`[{FieldName, Order: asc\|desc}]`) | `[{id, type, name, position, itemsCount, workspaceId, environmentId, createdAt, updatedAt}]` |
-| `engini_workflows_get_workflows` | `name`, `folderName`, `folderId`, `workflowId`, `enabled`, `blocked`, `deleted`, `type`, `connectionId`, `createdBy`, `updatedBy`, `updatedAfter` / `updatedBefore`, `lastRunAfter` / `lastRunBefore`, `deletedAfter`, `updatedAt`, `lastRunAt`, `Filters`, `SelectTop`, `Sorts` | the workflows in the key's scope |
-
-Pass the name the user gave (`{"name":"Invoices"}`), then match it yourself on the returned `name` (exact,
-case-insensitive). Exactly one match -> use its id, and read it with `engini workflows plan <id>` (a 404 there means
-it is not in the login's scope: STOP). Zero or several -> STOP, list the candidates, ask.
-
 The whole group:
 
 | Slug | Flo may call it? |
 |---|---|
-| `engini_workflows_get_workflows`, `engini_workflows_get_workflow`, `engini_workflows_get_workflow_revisions`, `engini_workflows_get_folders`, `engini_workflows_get_connections` | Yes - read-only. `get_folders` gives a `folderId`; `get_workflows` is the dry-run "nothing was written" count |
+| `engini_workflows_get_workflows`, `engini_workflows_get_folders` | Not needed - `engini workflows list` / `engini workflows folders` (§1) read the same, with no connection |
+| `engini_workflows_get_workflow`, `engini_workflows_get_workflow_revisions`, `engini_workflows_get_connections` | Read-only, but not needed - `engini workflows plan` and `engini workflows connections` (§1) cover what Flo reads |
 | `engini_workflows_get_executions`, `get_execution`, `get_execution_log`, `get_execution_step_data` | Use `engini executions list\|get\|log\|data` instead (§1), and only if the user asks (they read the user's run data; never log values) |
 | `engini_workflows_enable_or_disable_workflow` | **ONLY IF THE USER ASKS** for exactly this action on this workflow, in this conversation - never on Flo's own initiative, never to "finish the job". The user gets a permission prompt. A workflow Flo creates stays turned off |
 | `engini_workflows_run_workflow`, `engini_workflows_rerun_execution` | **ONLY IF THE USER ASKS** (same rule) |
@@ -111,8 +110,8 @@ The CLI prints them on stderr and exits non-zero (404 -> 4, 400/409/422 -> 5).
 
 | Status / code | Means | Do |
 |---|---|---|
-| 400 `SCOPE_REQUIRED` | Key not scoped to a workspace + environment. Writes always refuse an unscoped key; reads refuse only when no workspace resolves | STOP. Ask the user to issue a workspace-scoped key and log in with it (`engini login`, their own terminal) - and re-create the lookup connection with it if they use one. Never work around it |
-| 403 `API_KEY_REQUIRED` | Caller is not a Developer API key (a login token, or the wrong auth method on the lookup connection) | STOP. The login must be a Developer API key (`engini login`); a lookup connection must use auth method 1 (API key). Tell the user |
+| 400 `SCOPE_REQUIRED` | Key not scoped to a workspace + environment. Writes always refuse an unscoped key; reads refuse only when no workspace resolves | STOP. Ask the user to issue a workspace-scoped key and log in with it (`engini login`, their own terminal) - and re-create their `engini_workflows` connection with it if they have one. Never work around it |
+| 403 `API_KEY_REQUIRED` | Caller is not a Developer API key (a login token, or the wrong auth method on the `engini_workflows` connection) | STOP. The login must be a Developer API key (`engini login`); an `engini_workflows` connection must use auth method 1 (API key). Tell the user |
 | 403 `PERMISSION_DENIED` | Key's user lacks `workspace.create.workflows` (or edit on that workflow) | STOP. Tell the user; their account admin grants it |
 | 400 `INVALID_REQUEST` | Bad arg (missing plan, `--field`, `--connection`, `--app`, bad `--kind`, body > 1 MB, invalid JSON) | Fix the args per `path`/`message` |
 | 404 `SLUG_NOT_FOUND` | Tool slug unknown/hidden for this account | Re-search the catalog; never guess a slug |
@@ -241,7 +240,8 @@ n8n AI mapping (`plan-format.md` §1e): `chatTrigger` -> webhook trigger; `agent
 
 ## 4. CLI-level failures
 
-- `engini workflows` missing, or a flag this file names is unknown (exit 2): the CLI is older than 0.30.0 or changed.
+- `engini workflows` missing, or a command or flag this file names is unknown (exit 2): the CLI is older than 0.31.0
+  or changed.
   Re-read `engini workflows <verb> --help` and adapt; ask the user to update the CLI if a command is missing.
 - Exit 3: not logged in, or the login is not a Developer API key - STOP (rule 7: the user runs `engini login` in their
   own terminal).
