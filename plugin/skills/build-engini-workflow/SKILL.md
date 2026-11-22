@@ -223,8 +223,10 @@ Show the proposal table from `agent-rules.md`, then wait - no write before appro
 - [ ] `engini workflows compile --file - --base-workflow-id <id> <<'EOF'`; repair; show the user the diff (steps
       added, changed, removed) with the fingerprint, and STOP for approval.
 - [ ] `engini workflows update <id> --file - --expected-revision-id <revisionId> <<'EOF'` with the approved plan.
-  - `409 REVISION_CONFLICT` -> someone saved meanwhile: re-read, re-apply, re-compile, re-propose.
-  - `409 WORKFLOW_ACTIVE` -> stop; ask the user to turn it off, or offer a new turned-off copy via create.
+  - `409 REVISION_CONFLICT` -> someone saved meanwhile (a turn on/off counts as a save): re-read, re-apply,
+    re-compile, re-propose.
+  - `409 WORKFLOW_ACTIVE` -> stop; ask the user to turn it off, or offer a new turned-off copy via create. After
+    the user turns it off, re-read the plan first - turning it off saves a new revision.
 
 ## Never
 

@@ -17,7 +17,7 @@ Flo stops and tells you when one of these comes back. What **you** do:
 | 400 `OPTIONS_NOT_READONLY` | A field's options come from a source Flo will not read | Flo leaves the field empty and lists it; fill it in the designer |
 | 422 `PLAN_HAS_ERRORS` | The plan still has errors; nothing was saved | Flo fixes them and asks you to approve again |
 | 409 `WORKFLOW_ACTIVE` | You asked Flo to change a workflow that is turned on | Turn it off in the designer first, or let Flo create a new turned-off copy |
-| 409 `REVISION_CONFLICT` | Someone saved the workflow after Flo read it | Flo re-reads it, re-applies the change and shows you the new proposal |
+| 409 `REVISION_CONFLICT` | Someone saved the workflow after Flo read it - turning it on or off also counts as a save | Flo re-reads it, re-applies the change and shows you the new proposal |
 | 400 `SAVE_REJECTED` | The designer's own checks refused the save (connection ownership, schedule too frequent, AI tool names ...) | Read the message; Flo adjusts the plan and asks you again |
 | 502 `VENDOR_ERROR` | The connected app failed while Flo read from it | The connection may need re-authorizing in Engini. Then retry |
 | 500 `INTERNAL_ERROR` | An Engini server fault | Note the time and contact Engini support. Flo does not retry a write |
