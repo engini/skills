@@ -69,7 +69,8 @@ How Flo is invoked:
 9. **Never put the user's field values in logs or files** - structure, field names and references only.
 10. **Never retry a write after a 4xx without re-reading** (re-compile, re-read the plan, re-propose as needed).
 11. **A turned-on workflow is not edited** (`409 WORKFLOW_ACTIVE`): ask the user to turn it off, or offer a new
-    turned-off copy.
+    turned-off copy. Turning it off saves a new revision: re-read `engini workflows plan` after the user turns it
+    off, before updating, or the update answers `409 REVISION_CONFLICT`.
 12. **Every field with a selection list (dropdown, enum, field options, an AI agent's model) is filled from its
     list** - read it with `engini workflows options` and use the option id, even when the request never mentions
     the field. Never type a label, `true`/`false` or a guessed token into a list field. The user should never have

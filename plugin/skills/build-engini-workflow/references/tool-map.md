@@ -120,8 +120,8 @@ The CLI prints them on stderr and exits non-zero (404 -> 4, 400/409/422 -> 5).
 | 404 `UNKNOWN_FIELD` | Options asked for a non-dropdown field | Use a field from the schema's `dynamicFields` |
 | 400 `OPTIONS_NOT_READONLY` | Field's options come from a source the builder will not run (a designer-local list, or a workflow the builder does not run) | Leave the field for the user; say so |
 | 422 `PLAN_HAS_ERRORS` | A write refused: the plan has error diagnostics (listed). Nothing saved | Fix every error (compile again), then re-send. Never retry unchanged |
-| 409 `WORKFLOW_ACTIVE` | Update refused: the workflow is on | STOP. Ask the user to turn it off, or offer a new turned-off copy (create) |
-| 409 `REVISION_CONFLICT` | Saved since you read it (`currentRevisionId` given) | Re-read with `engini workflows plan`, re-apply the change, compile, show the diff again, then update with the new `revisionId` |
+| 409 `WORKFLOW_ACTIVE` | Update refused: the workflow is on | STOP. Ask the user to turn it off, or offer a new turned-off copy (create). After it is off, re-read the plan (turning off saves a new revision) |
+| 409 `REVISION_CONFLICT` | Saved since you read it, including a turn on/off (`currentRevisionId` given) | Re-read with `engini workflows plan`, re-apply the change, compile, show the diff again, then update with the new `revisionId` |
 | 400 `SAVE_REJECTED` | The designer's own save gates refused (connection ownership, schedule floor, AI tool names, ...) | Fix per `message`, compile, re-send once approved |
 | 502 `VENDOR_ERROR` | The connected system failed during a read | Tell the user the connection may need re-authorizing; don't loop |
 | 500 `INTERNAL_ERROR` | Server fault | Stop and report with the time; do not retry a write |
