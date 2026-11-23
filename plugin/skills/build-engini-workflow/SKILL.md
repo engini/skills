@@ -141,7 +141,10 @@ engini_workflows_rerun_execution
 - [ ] `engini workflows connections --app <slug>` per app - `--app` is required (exact catalog app slug). Several
       candidates -> the user chooses; none -> `connection: "none"` and a warning in the proposal.
 - [ ] `engini workflows schema <slug>` per tool (add `--kind` and `--connection <id>` for an action or trigger to read
-      the connected system) - input names, required inputs, enums, `dynamicFields`, outputs you will reference.
+      the connected system) - input names, required inputs, enums, `dynamicFields`, outputs you will reference. An
+      input listed in `objectPickers` (a Monday board, a Salesforce object): pick the object, then re-read with
+      `--selected <FIELD>=<value>` (needs `--connection`) - the object's fields come back keyed by field id; a
+      non-empty `unresolvedPicks` = stop and tell the user.
 - [ ] **Every field that has a selection list gets a pick from that list - no exceptions.** Go through each step's
       schema (inputs, `filters` fields, an AI agent's `model`, a tool's inputs) and mark every field with `enum`,
       `hasOptions`, `options` or a dropdown/option type - whether or not the request mentions it. For each:
