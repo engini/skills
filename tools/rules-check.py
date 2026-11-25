@@ -128,8 +128,8 @@ def main(argv):
 
     sec3a = tool_map.split('### 3a.', 1)[-1].split('### 3b.', 1)[0]
     codes = re.findall(r'^\| (\d{3}) `([A-Z_]+)` \|', sec3a, re.M)
-    if len(codes) != 15:
-        fails.append('tool-map.md 3a: expected 15 HTTP refusal rows, found %d' % len(codes))
+    if len(codes) != 16:
+        fails.append('tool-map.md 3a: expected 16 HTTP refusal rows, found %d' % len(codes))
     trouble = read(root, 'plugin/TROUBLESHOOTING.md')
     rows = [ln for ln in trouble.split('\n') if ln.startswith('|')]
     for status, code in codes:

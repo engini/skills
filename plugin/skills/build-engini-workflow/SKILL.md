@@ -7,7 +7,7 @@ description: Use when the user asks to build, create, design or edit an Engini w
 
 Flo writes a **WorkflowPlan** (string keys, `{{key.path}}` references, catalog slugs - never ids, never `##N`) and the
 Engini server compiles, validates and saves it. Every builder step is an `engini workflows` command, run as the
-account the CLI is logged into (the user's own `engini login`) - no connection is needed for them. The reads take
+account the CLI is logged into (the user's own `engini login key` or pair-mode `engini login`) - no connection is needed for them. The reads take
 flags (`engini workflows search 'send email' --kind action`); the three commands that take a plan read it, bare
 (`{"name":..., "trigger":..., "steps":[...]}`, not wrapped in `{"plan": ...}`), from stdin, never from a file:
 
@@ -73,22 +73,24 @@ engini_workflows_rerun_execution
 5. **Print the target scope before every write** - the account from `engini whoami` and the `workspaceId` /
    `environmentId` the last `engini workflows compile` returned - and write only while `engini whoami` still shows
    that same account, workspace and environment. Never switch accounts yourself (no `ENGINI_API_KEY`, no other
-   config folder, no `--api-key`): the user switches with `engini login` in their own terminal.
+   config folder, no `--api-key`): the user switches in their own terminal (`engini login key --profile <name>`, or
+   `engini login --profile <name>` for a pair-mode browser login).
 6. **Every field with a selection list is filled from its list** (dropdown, enum, field options, an AI agent's
    model, a filter field with options) - read it with `engini workflows options` and use the option id, even when
    the request never mentions the field. Never type a label, `true`/`false` or a guessed token into a list field.
 7. **Credentials:**
    - never ask for, accept or echo an API key in the conversation - if the user pastes one, do not use or repeat
-     it; tell them to revoke it and to log in with `engini login` themselves;
+     it; tell them to revoke it and to log in with `engini login key --profile <name>` themselves;
    - never read the Engini CLI's config file or the value of `ENGINI_API_KEY` (a presence test such as
      `[ -n "$ENGINI_API_KEY" ]` is fine);
-   - never run a command that takes or stores a key: `engini login`, `engini connect`, `engini connections
-     create|update|delete`, `engini connections auth-providers create|update`, or any `--api-key`. Whenever a step
-     needs a key, token or secret from the user (not logged in, an expired or unscoped key, the wrong account, no
-     `engini_workflows` connection for a never-verb they asked for) STOP and give the user the exact command to run
-     **in their own terminal, outside Claude Code or Codex - not with `!`**, for example "Run this in your own
-     terminal, not in this chat: `engini login` (paste a workspace-scoped key when it asks). Tell me when it is
-     done." - or, for that connection, `engini connect engini_workflows` (choose auth method 1, x-api-key). The
+   - never run a command that takes or stores a key: `engini login key`, `engini connect`, `engini connections
+     create|update|delete`, `engini connections auth-providers create|update`, or any `--api-key`. A bare `engini login`
+     is a browser sign-in, not a key paste. Whenever a step needs a key, token or secret from the user (not logged in,
+     an expired or unscoped key, the wrong account, no `engini_workflows` connection for a never-verb they asked for)
+     STOP and give the user the exact command to run **in their own terminal, outside Claude Code or Codex -
+     not with `!`**, for example "Run this in your own terminal, not in this chat: `engini login key --profile <name>` (paste a
+     workspace-scoped key when it asks). Tell me when it is done." - or, for that connection, `engini connect
+     engini_workflows` (choose auth method 1, x-api-key). The
      reason: in Claude Code's `!` mode the input is not a terminal, so the CLI cannot hide the key as it is typed.
      Never put a key in the command you give them. `!` is fine for a check that carries no secret, such as
      `! engini whoami`.
@@ -100,10 +102,15 @@ engini_workflows_rerun_execution
       update the CLI.
 - [ ] `engini whoami --json` and print **account** (`current_company`) / **workspace** / **environment** - this is
       the account every `engini workflows` command reads and writes. Not logged in -> STOP: tell the user to run
-      `engini login` in their own terminal (rule 7). No `workspace` key at all -> the CLI is too old -> STOP.
+      `engini login key --profile <name>` (or `engini login --profile <name>` in pair mode) in their own terminal
+      (rule 7). No `workspace` key at all -> the CLI is too old -> STOP.
       `workspace` empty -> the key is not scoped to a workspace and every write will be refused -> STOP: ask the user
       to log in with a workspace-scoped key, in their own terminal (rule 7). Not the account the user named -> STOP:
-      ask them to log the CLI into that account themselves (`engini login`, rule 7).
+      ask them to log the CLI into that account themselves (rule 7).
+- [ ] **Which login Flo builds on (D-R5):** an API-key profile, or a browser login approved for one workspace +
+      environment (pair mode). `whoami` showing an account-wide `scope_mode`, or more than one pair -> STOP: ask for a
+      pair-mode login or the key (rule 6). With a pair-mode login, add `--workspace <id> --environment <id>` to every
+      `engini workflows` command, from this same `whoami` run; a mismatch with the named customer pair -> STOP.
 - [ ] Run exactly `[ -n "$ENGINI_API_KEY" ] && echo set || echo unset` - any other spelling that names the variable
       is refused by the plugin's guard. If set, say so: the CLI is using that variable's key, not the saved login, and
       a stale one is the usual cause of a surprising account. Never print or read its value.
