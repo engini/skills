@@ -4,9 +4,13 @@ Two different kinds of connection are in play. Never mix them up.
 
 ## 1. Flo's door into the account: the user's own CLI login
 
-- Every `engini workflows` command runs as the key the `engini` CLI is logged in with - the user's own
-  workspace-scoped Developer API key, stored by `engini login` in their own terminal. Flo never logs in, never
-  switches accounts (no `ENGINI_API_KEY`, no other config folder, no `--api-key`) and never handles the key.
+- Every `engini workflows` command runs as the login the `engini` CLI holds - the user's own workspace-scoped Developer
+  API key (`engini login key --profile <name>`), or a browser login approved for one workspace + environment
+  (`engini login --profile <name>`, pair mode), stored in their own terminal. Flo never logs in, never switches
+  accounts (no `ENGINI_API_KEY`, no other config folder, no `--api-key`) and never handles the key.
+- **D-R5:** Flo builds only on an API-key profile or a pair-mode browser login. An account-wide browser login is
+  refused (`whoami` shows an account-wide `scope_mode`, or more than one pair). On a pair-mode login pass
+  `--workspace <id> --environment <id>` to every `engini workflows` command, from the same run's `whoami`.
 - `engini whoami --json` shows the login's account, workspace and environment. The key must be
   **workspace-scoped**: create/update refuse an unscoped key with `400 SCOPE_REQUIRED`, and reads and compile fall
   back to the account's default workspace + Production, which can mislead. Two stops, both before any design work:

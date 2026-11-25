@@ -75,10 +75,11 @@ prompt, that is a real delete on your account.
 
 ## Connect Engini (in your own terminal)
 
-1. `engini login` - interactive, with your **workspace-scoped** Developer API key. Never `engini login --api-key
-   ...`: arguments end up in your shell history and in the process list. Flo builds in whatever account, workspace
-   and environment this login is scoped to (`engini whoami` shows it); to build somewhere else, log in again with
-   that workspace's key.
+1. Log in, in your own terminal. Either `engini login key --profile <name>` (interactive, with your **workspace-scoped**
+   Developer API key; never `--api-key` on the command line: arguments end up in your shell history and in the process
+   list), or `engini login --profile <name>` (a browser sign-in) and approve **one** workspace + environment (pair mode).
+   An account-wide browser login is refused by Flo (D-R5). Flo builds in whatever account, workspace and environment
+   this login is scoped to (`engini whoami` shows it); to build somewhere else, log in again.
 2. Optional: `engini connect engini_workflows` - choose **auth method 1 (`x-api-key`)** and paste a key for the same
    workspace. Flo needs this connection only for a turn-on, run, rerun or delete you explicitly ask for. Building,
    editing and finding a folder or an existing workflow by name all run on your login alone.
@@ -346,7 +347,8 @@ writable root or Flo skips them.
 
 - **Your key carries its creator's whole permission set.** Use a dedicated, least-privilege, workspace-scoped key
   you can rotate.
-- **Log in interactively, in your own terminal.** `engini login`, never `--api-key` on the command line and never
+- **Log in interactively, in your own terminal.** `engini login key --profile <name>` for a key (a bare `engini login`
+  opens a browser sign-in instead), never `--api-key` on the command line and never
   through Claude Code's `!` prefix (no terminal there, so the key cannot be hidden as you type it).
 - **What Flo reads enters the model's context**: workflow definitions, and execution data when you ask for it.
 - **The stored key is reachable by the agent.** It is a file in your own home folder; the agent can reach it through

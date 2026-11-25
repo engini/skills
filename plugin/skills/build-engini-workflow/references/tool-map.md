@@ -110,8 +110,9 @@ The CLI prints them on stderr and exits non-zero (404 -> 4, 400/409/422 -> 5).
 
 | Status / code | Means | Do |
 |---|---|---|
-| 400 `SCOPE_REQUIRED` | Key not scoped to a workspace + environment. Writes always refuse an unscoped key; reads refuse only when no workspace resolves | STOP. Ask the user to issue a workspace-scoped key and log in with it (`engini login`, their own terminal) - and re-create their `engini_workflows` connection with it if they have one. Never work around it |
-| 403 `API_KEY_REQUIRED` | Caller is not a Developer API key (a login token, or the wrong auth method on the `engini_workflows` connection) | STOP. The login must be a Developer API key (`engini login`); an `engini_workflows` connection must use auth method 1 (API key). Tell the user |
+| 400 `SCOPE_REQUIRED` | Key not scoped to a workspace + environment. Writes always refuse an unscoped key; reads refuse only when no workspace resolves | STOP. Ask the user to issue a workspace-scoped key and log in with it (`engini login key --profile <name>`, their own terminal) - and re-create their `engini_workflows` connection with it if they have one. Never work around it |
+| 403 `SCOPE_NOT_ACCESSIBLE` | The workspace/environment named by `--workspace`/`--environment` is not one this login can open | STOP. Report it; the user checks the login's pair. Never try another pair |
+| 403 `API_KEY_REQUIRED` | Template submit (key-only), a wrong auth method on the `engini_workflows` connection, or an old server. A pair-mode browser login is admitted for builder commands (D-R5) | STOP. Use an API-key profile for that command; an `engini_workflows` connection must use auth method 1 (API key). Tell the user |
 | 403 `PERMISSION_DENIED` | Key's user lacks `workspace.create.workflows` (or edit on that workflow) | STOP. Tell the user; their account admin grants it |
 | 400 `INVALID_REQUEST` | Bad arg (missing plan, `--field`, `--connection`, `--app`, bad `--kind`, body > 1 MB, invalid JSON) | Fix the args per `path`/`message` |
 | 404 `SLUG_NOT_FOUND` | Tool slug unknown/hidden for this account | Re-search the catalog; never guess a slug |
@@ -243,7 +244,7 @@ n8n AI mapping (`plan-format.md` §1e): `chatTrigger` -> webhook trigger; `agent
 - `engini workflows` missing, or a command or flag this file names is unknown (exit 2): the CLI is older than 0.31.0
   or changed.
   Re-read `engini workflows <verb> --help` and adapt; ask the user to update the CLI if a command is missing.
-- Exit 3: not logged in, or the login is not a Developer API key - STOP (rule 7: the user runs `engini login` in their
+- Exit 3: not logged in, or the login is not one Flo accepts (D-R5) - STOP (rule 7: the user runs `engini login key --profile <name>` or, in pair mode, `engini login --profile <name>`, in their
   own terminal).
 - Exit 4 / unknown slug on a `tools call`: the connector changed. Re-run `engini tools list --application
   engini_workflows` and adapt.
