@@ -280,7 +280,7 @@ Codex they are all there is.
       "Bash(engini workflows disable:*)",
       "Bash(engini executions rerun:*)",
       "Bash(engini connect:*)",
-      "Bash(engini login:*)",
+      "Bash(engini login key:*)",
       "Bash(engini connections create:*)",
       "Bash(engini connections update:*)",
       "Bash(engini connections delete:*)",
@@ -319,7 +319,7 @@ prefix_rule(pattern = ["engini", "workflows", "enable"], decision = "prompt", ju
 prefix_rule(pattern = ["engini", "workflows", "disable"], decision = "prompt", justification = "Flo calls this only when you asked for exactly this action on this workflow")
 prefix_rule(pattern = ["engini", "executions", "rerun"], decision = "prompt", justification = "Flo calls this only when you asked for exactly this action on this workflow")
 prefix_rule(pattern = ["engini", "connect"], decision = "prompt", justification = "takes or stores a raw API key - decline this, run it in your own terminal outside Codex, never paste the key into the chat")
-prefix_rule(pattern = ["engini", "login"], decision = "prompt", justification = "takes or stores a raw API key - decline this, run it in your own terminal outside Codex, never paste the key into the chat")
+prefix_rule(pattern = ["engini", "login", "key"], decision = "prompt", justification = "takes or stores a raw API key - decline this, run it in your own terminal outside Codex, never paste the key into the chat")
 prefix_rule(pattern = ["engini", "connections", "create"], decision = "prompt", justification = "takes or stores a raw API key - decline this, run it in your own terminal outside Codex, never paste the key into the chat")
 prefix_rule(pattern = ["engini", "connections", "update"], decision = "prompt", justification = "takes or stores a raw API key - decline this, run it in your own terminal outside Codex, never paste the key into the chat")
 prefix_rule(pattern = ["engini", "connections", "delete"], decision = "prompt", justification = "takes or stores a raw API key - decline this, run it in your own terminal outside Codex, never paste the key into the chat")
